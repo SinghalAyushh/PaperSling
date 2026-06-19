@@ -1,0 +1,1275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Paper Sling — crumple a wish, sling it across the world</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400&family=Courier+Prime:wght@400;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/@lottiefiles/lottie-player@2.0.8/dist/lottie-player.js"></script>
+<style>
+  :root{
+    --bg-0:#0b0a13;--bg-1:#12111f;--ink:#f3ead7;--ink-soft:#bdae8f;
+    --ember:#ffb15c;--ember-deep:#ff8a3d;--halo:#ffcf8a;
+    --line:rgba(255,200,140,.16);--card:rgba(18,16,28,.74);
+    --paper:#fdfbf7;--paper-line:#a6cbe8;--paper-margin:#ff8a8a;
+    --ink-stamp:#b6442f;--ink-stamp2:#2f5d8c;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;overflow:hidden;color:var(--ink);
+    font-family:"Inter",system-ui,sans-serif;
+    background:radial-gradient(125% 100% at 50% -8%,#1b1733 0%,var(--bg-1) 40%,var(--bg-0) 100%)}
+  canvas{display:block}
+  
+  /* ---- Lottie-Style SVG Loader ---- */
+  .fancy-loader {
+    position: fixed; inset: 0; z-index: 50; background: var(--bg-0);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    transition: opacity 0.8s ease, visibility 0.8s;
+  }
+  .fancy-loader.hide { opacity: 0; visibility: hidden; pointer-events: none; }
+  .plane-svg { width: 100px; height: 100px; overflow: visible; animation: floatPlane 3s ease-in-out infinite; }
+  .plane-path {
+    stroke: var(--ember); stroke-width: 3; fill: rgba(255,177,92,0.1);
+    stroke-linecap: round; stroke-linejoin: round;
+    stroke-dasharray: 400; stroke-dashoffset: 400;
+    animation: drawPlane 2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+  .loader-anim { position: relative; width: 170px; height: 170px; display:flex; align-items:center; justify-content:center; }
+  .loader-anim .plane-svg { position:absolute; }
+  .loader-lottie { position:absolute; inset:0; width:170px; height:170px; }
+  .loader-text { margin-top: 24px; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-soft); animation: pulseText 2s infinite; }
+  @keyframes drawPlane { to { stroke-dashoffset: 0; } }
+  @keyframes floatPlane { 0%, 100% { transform: translateY(0) rotate(-5deg); } 50% { transform: translateY(-15px) rotate(5deg); } }
+  @keyframes pulseText { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+
+  #globe {position:fixed;inset:0;z-index:1; transition: opacity 1.5s ease;}
+  #globe.hidden { opacity: 0; pointer-events: none; }
+  
+  #satellite-map {
+    position: fixed; inset: 0; z-index: 5; opacity: 0; 
+    pointer-events: none; transition: opacity 0.8s ease;
+  }
+  #satellite-map.active { opacity: 1; pointer-events: auto; }
+  
+  /* ---- top bar ---- */
+  .topbar{position:fixed;top:0;left:0;right:0;z-index:8;display:flex;justify-content:space-between;
+    align-items:flex-start;padding:16px 18px;pointer-events:none}
+  .brand{pointer-events:auto}
+  .brand h1{margin:0;font-family:"Fraunces",serif;font-weight:500;font-size:20px;letter-spacing:.2px}
+  .brand p{margin:2px 0 0;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);opacity:.7}
+  .chip{pointer-events:auto;background:var(--card);border:.5px solid var(--line);border-radius:13px;
+    padding:7px 13px;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);text-align:center;min-width:80px}
+  .chip .k{font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);opacity:.75}
+  .chip .v{font-family:"Fraunces",serif;font-size:17px;margin-top:1px}
+
+  .sound{position:fixed;right:18px;top:60px;z-index:8;width:36px;height:36px;border-radius:50%;
+    background:var(--card);border:.5px solid var(--line);color:var(--ink-soft);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+  .sound svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+  .sound.on{color:var(--ember);border-color:rgba(255,177,92,.5)}
+
+  /* ---- Center Studio (Writing Phase) ---- */
+  .dock{position:fixed; z-index:8; display:flex;flex-direction:column; align-items:center; width:min(92vw,440px);
+    left:50%; top:50%; transform:translate(-50%, -50%) scale(0.9); opacity: 0; pointer-events:none; transition: all 0.6s cubic-bezier(0.2, 0.9, 0.3, 1);}
+  .dock.active { transform:translate(-50%, -50%) scale(1); opacity: 1; pointer-events:auto; }
+  .dock.hidden { opacity: 0; transform:translate(-50%, -40%) scale(0.9); pointer-events: none; }
+  
+  .studio{position:relative;width:100%;background:var(--card);border:.5px solid var(--line);
+    border-radius:22px;padding:24px;-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+    box-shadow:0 30px 80px rgba(0,0,0,.8);}
+
+  /* close the paper view to explore the globe */
+  .studio-close{position:absolute;top:12px;right:12px;width:30px;height:30px;border-radius:50%;
+    border:.5px solid var(--line);background:rgba(255,255,255,.06);color:var(--ink-soft);
+    display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:5;transition:background .2s,color .2s}
+  .studio-close:hover{background:rgba(255,255,255,.13);color:var(--ink)}
+  .studio-close svg{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round}
+
+  /* floating button to come back and write a new wish */
+  .write-fab{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);z-index:9;
+    display:none;align-items:center;gap:8px;padding:13px 22px;border-radius:30px;border:none;cursor:pointer;
+    font:inherit;font-weight:600;font-size:15px;color:#2a1606;
+    background:linear-gradient(180deg,var(--halo),var(--ember-deep));box-shadow:0 10px 30px rgba(255,138,61,.4);
+    opacity:0;transition:opacity .4s, transform .4s}
+  .write-fab.show{display:flex;opacity:1;transform:translateX(-50%) translateY(0)}
+  .write-fab svg{width:18px;height:18px;stroke:#2a1606;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  
+  .from{font-size:13px;color:var(--ink-soft);text-align:center;margin:0 0 16px;min-height:14px; letter-spacing: 0.05em;}
+  .from b{color:var(--ember);font-weight:500}
+
+  .stage{position:relative;height:296px;display:flex;align-items:center;justify-content:center;margin-bottom:8px}
+
+  .sheet{position:relative;width:330px;height:286px;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.45) 0, rgba(0,0,0,.04) 100%),
+      repeating-linear-gradient(var(--paper) 0, var(--paper) 30px, var(--paper-line) 30px, var(--paper-line) 31px);
+    border-radius:4px;box-shadow:0 14px 34px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.7);
+    transform:rotate(-2deg);transform-origin:center center;
+    transition:transform .45s cubic-bezier(.2,.9,.3,1), opacity .4s;
+    overflow:hidden; z-index:3;}
+  .sheet::before{content:"";position:absolute;left:38px;top:0;bottom:0;width:2px;background:var(--paper-margin);opacity:.55}
+  .sheet textarea{position:absolute;left:0;right:0;top:0;bottom:14px;border:none;background:transparent;resize:none;
+    outline:none;font-family:"Caveat",cursive;font-size:30px;line-height:31px;color:#1c1b34;
+    padding:28px 16px 10px 50px;transition:opacity .3s;}
+  .sheet textarea::placeholder{color:#b6a684}
+
+  /* postage stamp printed onto the paper's corner (replaces the old stamp box) */
+  .paper-stamp{position:absolute;right:12px;bottom:10px;width:72px;height:72px;z-index:2;
+    opacity:0;pointer-events:none;filter:drop-shadow(0 2px 3px rgba(0,0,0,.25))}
+  .paper-stamp.show{opacity:1}
+
+  .status-tag{position:absolute;top:5px;right:8px;font-family:"Courier Prime",monospace;font-size:10px;
+    letter-spacing:.1em;color:#9b8a68;text-transform:uppercase;transition:opacity .3s;z-index:2}
+
+  @keyframes crumpleSquash{
+    0%  {transform:rotate(-2deg)  scale(1);   border-radius:4px}
+    20% {transform:rotate(6deg)   scale(.93); border-radius:16% 10% 14% 12%}
+    42% {transform:rotate(-13deg) scale(.64); border-radius:38% 26% 34% 42%}
+    68% {transform:rotate(200deg) scale(.34); border-radius:46% 54% 42% 58% / 52% 44% 56% 48%}
+    100%{transform:rotate(392deg) scale(.2);  border-radius:48% 52% 46% 54% / 54% 46% 58% 42%}
+  }
+  .sheet.crumpled{
+    animation:crumpleSquash .8s cubic-bezier(.5,-0.18,.3,1.25) forwards;border:none;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg fill='none' stroke='rgba(90,70,40,0.22)' stroke-width='1.3'%3E%3Cpath d='M8 30 L34 22 L50 42 L72 28 L92 46'/%3E%3Cpath d='M14 64 L40 54 L58 72 L82 62'/%3E%3Cpath d='M50 6 L46 30 L60 52 L52 78 L58 96'/%3E%3Cpath d='M24 10 L30 40 L18 70 L30 92'/%3E%3Cpath d='M78 12 L70 38 L84 64 L74 90'/%3E%3C/g%3E%3C/svg%3E") center/cover, radial-gradient(circle at 38% 34%, #ffffff 0%, #efe7d6 42%, #d7c5a3 72%, #b59a6e 100%) !important;
+    box-shadow: inset -8px -10px 18px rgba(90,60,20,.35), inset 8px 8px 14px rgba(255,255,255,.45), 0 18px 34px rgba(0,0,0,.6) !important;
+  }
+  .sheet.crumpled::before{display:none}
+
+  /* ---- Gamified Slingshot View (Bottom Center) ---- */
+  .slingshot-view {position:fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(40px); 
+    opacity: 0; pointer-events:none; display:flex; align-items:center; justify-content:center; z-index:7; width: 200px; height: 200px; transition: all 0.5s ease-out;}
+  .slingshot-view.active { opacity: 1; pointer-events:auto; transform: translateX(-50%) translateY(0); }
+  
+  .sling-svg {width:240px; height:240px; filter:drop-shadow(0 20px 25px rgba(0,0,0,.8)); position:absolute; top:0; left:-20px;}
+  
+  .aim-hud { position: absolute; top: -120px; left: 50%; transform: translateX(-50%); width: 300px; height: 300px; pointer-events: none; opacity: 0; transition: opacity 0.2s;}
+  .aim-hud.show { opacity: 1; }
+  
+  .pouch-ball {
+    position:absolute; width:52px; height:52px; cursor: grab;
+    border-radius:48% 52% 46% 54% / 54% 46% 58% 42%;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg fill='none' stroke='rgba(90,70,40,0.22)' stroke-width='1.3'%3E%3Cpath d='M8 30 L34 22 L50 42 L72 28 L92 46'/%3E%3Cpath d='M14 64 L40 54 L58 72 L82 62'/%3E%3Cpath d='M50 6 L46 30 L60 52 L52 78 L58 96'/%3E%3Cpath d='M24 10 L30 40 L18 70 L30 92'/%3E%3Cpath d='M78 12 L70 38 L84 64 L74 90'/%3E%3C/g%3E%3C/svg%3E") center/cover, radial-gradient(circle at 38% 34%, #ffffff 0%, #efe7d6 42%, #d7c5a3 72%, #b59a6e 100%);
+    box-shadow:inset -5px -6px 12px rgba(90,60,20,.35), inset 5px 5px 10px rgba(255,255,255,.5), 0 8px 16px rgba(0,0,0,.6);
+    top:50%; left:50%; transform:translate(-50%, calc(-50% - 20px));
+    z-index:4; touch-action: none;
+  }
+  .pouch-ball:active { cursor: grabbing; }
+
+  .flying-ball {
+    position:fixed; width:52px; height:52px; z-index:12; pointer-events:none;
+    border-radius:48% 52% 46% 54% / 54% 46% 58% 42%;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg fill='none' stroke='rgba(90,70,40,0.22)' stroke-width='1.3'%3E%3Cpath d='M8 30 L34 22 L50 42 L72 28 L92 46'/%3E%3Cpath d='M14 64 L40 54 L58 72 L82 62'/%3E%3Cpath d='M50 6 L46 30 L60 52 L52 78 L58 96'/%3E%3Cpath d='M24 10 L30 40 L18 70 L30 92'/%3E%3Cpath d='M78 12 L70 38 L84 64 L74 90'/%3E%3C/g%3E%3C/svg%3E") center/cover, radial-gradient(circle at 38% 34%, #ffffff 0%, #efe7d6 42%, #d7c5a3 72%, #b59a6e 100%);
+    box-shadow:inset -5px -6px 12px rgba(90,60,20,.35), 0 10px 22px rgba(0,0,0,.6);
+  }
+
+  .meteor-ball {
+    position:fixed; z-index:12; width:40px; height:40px; pointer-events:none;
+    left:50%; transform:translateX(-50%); border-radius:50%;
+    background: radial-gradient(circle at 30% 30%, #fff, #ffcf8a, #ff3d00);
+    box-shadow: 0 0 40px #ff3d00, 0 10px 60px #ff8a3d, inset 0 0 10px #ff9100;
+  }
+  .meteor-ball::after {
+    content: ''; position: absolute; top: -100px; left: 2px; right: 2px; bottom: 15px;
+    background: linear-gradient(to top, rgba(255,60,0,0.9), transparent);
+    border-radius: 50%; filter: blur(6px); z-index: -1;
+  }
+
+  @keyframes impactShake { 0%, 100% { transform: translate(0,0); } 20% { transform: translate(-12px, 12px) rotate(-1deg); } 40% { transform: translate(12px, -12px) rotate(1deg); } 60% { transform: translate(-12px, -6px); } 80% { transform: translate(12px, 6px); } }
+  .impact-flash { position: fixed; inset: 0; z-index: 11; background: radial-gradient(circle at 50% 50%, #fff, #ff8a3d, transparent); opacity: 0; pointer-events: none; }
+
+  .actionbar{display:flex;gap:9px;margin-top:6px; height:50px;}
+  .btn{flex:1;border:none;border-radius:13px;padding:13px;font:inherit;font-weight:500;font-size:15px;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;
+    background:rgba(255,255,255,.06);border:.5px solid var(--line);color:var(--ink);transition:background .2s,transform .08s}
+  .btn:hover{background:rgba(255,255,255,.11)}
+  .btn:active{transform:scale(.985)}
+  .btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .btn:disabled{opacity:.4;cursor:default}
+  .hint{text-align:center;font-size:11px;color:var(--ink-soft);opacity:.8;margin:12px 0 0;letter-spacing:.03em; line-height: 1.4;}
+
+  .sling-hint { position: fixed; bottom: 30px; left: 0; right: 0; text-align: center; font-size: 13px; color: var(--halo); letter-spacing: 0.1em; text-transform: uppercase; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 8; text-shadow: 0 2px 10px rgba(0,0,0,0.8);}
+  .sling-hint.show { opacity: 1; animation: floatText 2s ease-in-out infinite; }
+  @keyframes floatText { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+
+  .passport{position:fixed;left:0;right:0;bottom:0;z-index:4;display:flex;gap:10px;padding:10px 14px 124px; overflow-x:auto;pointer-events:none;-ms-overflow-style:none;scrollbar-width:none}
+  .passport::-webkit-scrollbar{display:none}
+
+  /* ---- result card ---- */
+  .scrim{position:fixed;inset:0;z-index:15;background:rgba(5,4,10,.66);-webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;padding:20px}
+  .scrim.show{display:flex}
+  .resultwrap{width:100%;max-width:330px}
+  .result{border-radius:22px;overflow:hidden;border:.5px solid var(--line); background:linear-gradient(180deg,#171326,#0d0b16);box-shadow:0 30px 80px rgba(0,0,0,.6); transform:translateY(14px) scale(.97);opacity:0;transition:.4s cubic-bezier(.2,.9,.3,1)}
+  .scrim.show .result{transform:none;opacity:1}
+  .rcard{padding:24px 22px 20px;position:relative}
+  .rtier{font-size:10.5px;letter-spacing:.26em;text-transform:uppercase;text-align:center;margin:0; display:flex;align-items:center;justify-content:center;gap:5px}
+  .rdist{font-family:"Fraunces",serif;font-size:50px;text-align:center;line-height:1;margin:7px 0 2px}
+  .rdist small{font-size:17px;color:var(--ink-soft)}
+  .rroute{text-align:center;font-size:12.5px;color:var(--ink-soft);margin:5px 0 16px; display:flex;align-items:center;justify-content:center;gap:4px}
+  .rroute b{color:var(--ember);font-weight:500}
+  .stampseat{display:flex;justify-content:center;margin:4px 0 16px}
+  .rwish{font-family:"Caveat",cursive;font-size:26px;text-align:center;line-height:1.3; border-top:.5px solid var(--line);padding:18px 4px 0;margin:0; color:#fdfbf7;}
+  .rmeta{display:flex;justify-content:space-around;margin-top:16px}
+  .rmeta .k{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);opacity:.7}
+  .rmeta .v{font-family:"Fraunces",serif;font-size:19px;margin-top:2px}
+  .rnote{font-family:"Fraunces",serif;font-style:italic;font-size:14.5px;line-height:1.55;text-align:center;
+    color:var(--halo);margin:16px 2px 2px;padding-top:15px;border-top:.5px solid var(--line)}
+  .rnote b{color:var(--ember);font-style:normal;font-weight:500}
+  .ractions{display:flex;gap:9px;margin-top:12px}
+  .ractions button{flex:1;border-radius:13px;padding:12px;font:inherit;font-size:13px;font-weight:500;cursor:pointer; border:.5px solid var(--line);background:rgba(255,255,255,.05);color:var(--ink)}
+  .ractions button.primary{background:linear-gradient(180deg,var(--halo),var(--ember-deep));color:#2a1606;border:none}
+
+  .toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);z-index:20;background:var(--card); border:.5px solid var(--line);border-radius:11px;padding:9px 15px;font-size:12.5px;opacity:0; transition:opacity .3s;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+  .toast.show{opacity:1}
+
+  /* ---- Strength meter (gamified power) ---- */
+  .strength-meter{position:fixed; right:20px; bottom:104px; z-index:8; display:flex; flex-direction:column;
+    align-items:center; gap:7px; opacity:0; transform:translateY(12px); pointer-events:none;
+    transition:opacity .3s, transform .3s;}
+  .strength-meter.active{opacity:1; transform:translateY(0)}
+  .sm-track{position:relative; width:20px; height:160px; border-radius:11px; background:rgba(0,0,0,.55);
+    border:1px solid var(--line); overflow:hidden; box-shadow:inset 0 2px 6px rgba(0,0,0,.6)}
+  .sm-sweet{position:absolute; left:0; right:0; bottom:65%; height:20%;
+    background:rgba(90,208,122,.25); border-top:1.5px solid #5ad07a; border-bottom:1.5px solid #5ad07a}
+  .sm-fill{position:absolute; left:0; right:0; bottom:0; height:0%;
+    background:linear-gradient(0deg,var(--ember-deep),var(--halo)); border-radius:0 0 11px 11px}
+  .sm-fill.in-sweet{background:linear-gradient(0deg,#2f8c5d,#7be6a6)}
+  .sm-label{font-size:8.5px;letter-spacing:.12em;color:var(--halo);text-transform:uppercase;font-weight:700}
+  .sm-wind{font-size:8px;letter-spacing:.05em;color:var(--ink-soft);text-transform:uppercase}
+
+  /* ---- Mascot + comic speech bubble ---- */
+  .mascot{position:fixed; left:16px; bottom:16px; z-index:9; display:flex; align-items:flex-end; gap:9px;
+    pointer-events:none; max-width:min(86vw,330px)}
+  .mascot .avatar{position:relative; width:74px; height:74px; flex:0 0 auto;
+    animation:mascotBob 3s ease-in-out infinite}
+  .mascot .avatar-emoji{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    font-size:46px; filter:drop-shadow(0 6px 10px rgba(0,0,0,.6))}
+  .mascot lottie-player{position:absolute; inset:0; width:74px; height:74px}
+  @keyframes mascotBob{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-9px) rotate(3deg)}}
+  .bubble{position:relative; background:#fffef8; color:#241f33; border:2px solid #241f33; border-radius:15px;
+    padding:9px 13px; font-family:"Caveat",cursive; font-size:21px; line-height:1.12;
+    box-shadow:0 12px 28px rgba(0,0,0,.55); opacity:0; transform:translateY(8px) scale(.95);
+    transition:opacity .28s, transform .28s; transform-origin:left bottom}
+  .bubble.show{opacity:1; transform:translateY(0) scale(1)}
+  .bubble::after{content:""; position:absolute; left:-11px; bottom:13px; border:8px solid transparent; border-right-color:#241f33}
+  .bubble::before{content:""; position:absolute; left:-7px; bottom:15px; border:6px solid transparent; border-right-color:#fffef8; z-index:1}
+
+  /* ---- Globe message pins (clickable) ---- */
+  .globe-pin{position:relative;width:0;height:0;cursor:pointer;pointer-events:auto;}
+  .globe-pin .dot{position:absolute;left:-6px;top:-6px;width:12px;height:12px;border-radius:50%;
+    background:radial-gradient(circle at 35% 30%,#fff,var(--halo) 45%,var(--ember-deep));
+    box-shadow:0 0 8px var(--ember),0 0 16px var(--ember-deep);}
+  .globe-pin .ring{position:absolute;left:-11px;top:-11px;width:22px;height:22px;border-radius:50%;
+    border:1.5px solid var(--halo);opacity:.8;animation:pinPulse 2.2s ease-out infinite;}
+  .globe-pin .tag{position:absolute;left:-9px;top:-30px;font-size:15px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.6));
+    transition:transform .15s;}
+  .globe-pin:hover .tag{transform:scale(1.35) translateY(-2px);}
+  @keyframes pinPulse{0%{transform:scale(.4);opacity:.85}100%{transform:scale(2.6);opacity:0}}
+
+  /* ---- Leaflet paper marker ---- */
+  .map-pin{font-size:30px;line-height:1;filter:drop-shadow(0 4px 6px rgba(0,0,0,.7));animation:mascotBob 2.4s ease-in-out infinite;}
+
+  /* ---- Back-to-globe button (map browsing) ---- */
+  .map-back{position:fixed;top:16px;left:16px;z-index:16;display:none;align-items:center;gap:7px;
+    background:var(--card);border:.5px solid var(--line);color:var(--ink);border-radius:13px;
+    padding:9px 14px;font:inherit;font-size:13px;cursor:pointer;
+    -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+  .map-back.show{display:flex}
+  .map-back svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+  /* ---- Celebration lottie overlay ---- */
+  .celebrate{position:fixed;inset:0;z-index:14;pointer-events:none;opacity:0;transition:opacity .3s}
+  .celebrate.show{opacity:1}
+  .celebrate lottie-player{width:100%;height:100%}
+</style>
+</head>
+<body>
+
+  <div class="fancy-loader" id="loader">
+    <div class="loader-anim">
+      <!-- SVG plane is the guaranteed fallback; the Lottie plays on top once loaded -->
+      <svg viewBox="0 0 100 100" class="plane-svg" id="loaderFallback">
+        <path class="plane-path" d="M10 50 L90 20 L40 90 L40 60 L10 50 Z M40 60 L60 40" />
+      </svg>
+      <lottie-player class="loader-lottie" id="loaderLottie"
+        src="https://assets10.lottiefiles.com/packages/lf20_jmgekfqg.json"
+        background="transparent" speed="1" loop autoplay></lottie-player>
+    </div>
+    <div class="loader-text">Charting Winds...</div>
+  </div>
+
+  <div id="globe"></div>
+  <div id="satellite-map"></div>
+
+  <div class="topbar">
+    <div class="brand"><h1>Paper Sling</h1><p>crumple it · load it · sling it</p></div>
+    <div style="display:flex;gap:9px">
+      <div class="chip"><div class="k">Stamps</div><div class="v" id="s-stamps">0</div></div>
+    </div>
+  </div>
+
+  <button class="sound" id="sound" aria-label="Toggle sound" aria-pressed="false">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M11 5 6 9H3v6h3l5 4z"/>
+      <path id="snd-wave" d="M16 9a5 5 0 0 1 0 6" style="display:none"/>
+      <line id="snd-m1" x1="22" y1="9" x2="16" y2="15"/><line id="snd-m2" x1="16" y1="9" x2="22" y2="15"/>
+    </svg>
+  </button>
+
+  <div class="passport" id="passport"></div>
+
+  <div class="dock" id="studio">
+    <div class="studio">
+      <button class="studio-close" id="studioClose" aria-label="Close and view the globe" title="View the globe">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <p class="from" id="from">writing from <b>Faridabad, India</b></p>
+      
+      <div class="stage">
+        <div class="sheet" id="sheet">
+          <span class="status-tag" id="status-tag">paper: crisp</span>
+          <textarea id="wish" maxlength="110" placeholder="Write a wish, or a note to someone…"></textarea>
+          <div class="paper-stamp" id="paperStamp"></div>
+        </div>
+      </div>
+
+      <div class="actionbar">
+        <button class="btn" id="action-btn" disabled>
+          <svg viewBox="0 0 24 24"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg>
+          Crumple
+        </button>
+      </div>
+      <p class="hint" id="hint">Write your note to anyone, anywhere on Earth…</p>
+    </div>
+  </div>
+
+  <div class="slingshot-view" id="slingshotView">
+    <svg class="aim-hud" viewBox="0 0 300 300" id="aimHud">
+      <path id="aimLine" d="M150 150 L150 20" stroke="rgba(255, 207, 138, 0.8)" stroke-width="3" stroke-dasharray="8,8" stroke-linecap="round" fill="none"/>
+      <polygon id="aimHead" points="150,10 142,25 158,25" fill="var(--halo)" />
+    </svg>
+
+    <svg class="sling-svg" viewBox="0 0 240 240" id="slingSvg">
+      <defs>
+        <linearGradient id="woodG" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#a9743f"/><stop offset=".45" stop-color="#7c4a22"/><stop offset="1" stop-color="#492a13"/>
+        </linearGradient>
+        <linearGradient id="woodEdge" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#d3a86d"/><stop offset="1" stop-color="#5e3a1c"/>
+        </linearGradient>
+      </defs>
+      <line id="band-left"  x1="60"  y1="62" x2="120" y2="90" stroke="#7c2d2d" stroke-width="8" stroke-linecap="round"/>
+      <line id="band-right" x1="180" y1="62" x2="120" y2="90" stroke="#7c2d2d" stroke-width="8" stroke-linecap="round"/>
+      <path d="M105 235 Q103 180 110 146 Q84 105 57 67 Q52 55 67 60 Q105 93 120 127 Q134 93 172 60 Q187 55 182 67 Q156 105 129 146 Q136 180 134 235 Z" fill="url(#woodG)" stroke="#3a2110" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M110 144 Q86 105 60 69" fill="none" stroke="url(#woodEdge)" stroke-width="4" stroke-linecap="round" opacity=".75"/>
+      <path d="M129 144 Q153 105 180 69" fill="none" stroke="#caa06a" stroke-width="3" stroke-linecap="round" opacity=".4"/>
+      <circle cx="60" cy="62" r="9" fill="url(#woodEdge)" stroke="#3a2110" stroke-width="2"/>
+      <circle cx="180" cy="62" r="9" fill="url(#woodEdge)" stroke="#3a2110" stroke-width="2"/>
+    </svg>
+    <div class="pouch-ball" id="pouchBall"></div>
+  </div>
+  
+  <div class="sling-hint" id="slingHint">Drag Pouch to Aim & Pull Back</div>
+
+  <div class="strength-meter" id="strengthMeter">
+    <div class="sm-track">
+      <div class="sm-sweet"></div>
+      <div class="sm-fill" id="smFill"></div>
+    </div>
+    <div class="sm-label">Strength</div>
+    <div class="sm-wind" id="smWind">×350 km</div>
+  </div>
+
+  <div class="mascot" id="mascot">
+    <div class="avatar">
+      <span class="avatar-emoji">🕊️</span>
+      <lottie-player src="https://assets10.lottiefiles.com/packages/lf20_touohxv0.json"
+        background="transparent" speed="1" loop autoplay></lottie-player>
+    </div>
+    <div class="bubble" id="mascotBubble"></div>
+  </div>
+
+  <button class="map-back" id="mapBack">
+    <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg> Back to globe
+  </button>
+
+  <button class="write-fab" id="writeFab">
+    <svg viewBox="0 0 24 24"><path d="M12 19l7-7 3 3-7 7-3-3zM18 13l-1.5-1.5M2 22l1.5-5.5L15 5l4 4L7.5 20.5 2 22z"/></svg>
+    Write a wish
+  </button>
+
+  <div class="celebrate" id="celebrate">
+    <lottie-player id="celebrateLottie"
+      src="https://assets1.lottiefiles.com/packages/lf20_u4yrau.json"
+      background="transparent" speed="1" autoplay loop></lottie-player>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <div class="scrim" id="scrim">
+    <div class="resultwrap">
+      <div class="result" id="result">
+        <div class="rcard">
+          <p class="rtier" id="r-tier"></p>
+          <p class="rdist"><span id="r-dist">0</span> <small>km</small></p>
+          <p class="rroute" id="r-route"></p>
+          <div class="stampseat" id="r-stamp"></div>
+          <p class="rwish" id="r-wish"></p>
+          <div class="rmeta">
+            <div><div class="k">Score</div><div class="v" id="r-score">0</div></div>
+            <div><div class="k">Streak</div><div class="v" id="r-streak">×1</div></div>
+            <div><div class="k">Stamps</div><div class="v" id="r-stampn">1</div></div>
+          </div>
+          <p class="rnote" id="r-note"></p>
+          <p class="rmark">paper sling</p>
+        </div>
+      </div>
+      <div class="ractions">
+        <button id="r-explore">Explore globe</button>
+        <button id="r-again" class="primary">Sling Another</button>
+      </div>
+    </div>
+  </div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/globe.gl@2.32.4/dist/globe.gl.min.js"></script>
+<!-- Firebase (compat build — works with classic scripts below) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<!-- EmailJS (free email service) — optional; only used if EMAIL_CONFIG is filled in -->
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+
+<script>
+/* ---------- helpers ---------- */
+const $=id=>document.getElementById(id);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const fmt=n=>n.toLocaleString("en-US");
+function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");
+  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2600);}
+
+/* ============================================================================
+   🔥 FIREBASE — PASTE YOUR CONFIG HERE
+   ----------------------------------------------------------------------------
+   1. Go to https://console.firebase.google.com → create / open a project.
+   2. Add a Web app (</> icon) and copy its "firebaseConfig" object.
+   3. Paste the values below (keep the quotes).
+   4. In the console: Build → Firestore Database → Create database (Start in
+      *test mode* for quick demos, or add rules that allow read/write to the
+      "slings" collection).
+   Leave it blank to run fully offline with local seed pins — nothing breaks.
+   ============================================================================ */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyA6SXrNUtEYfvS-r-M6N8RyHrAF_MgTLoQ",
+  authDomain: "globe-eacaa.firebaseapp.com",
+  projectId: "globe-eacaa",
+  storageBucket: "globe-eacaa.firebasestorage.app",
+  messagingSenderId: "795556346868",
+  appId: "1:795556346868:web:9104e78edd4fa6e1ba97a1"
+};
+
+
+let db = null, fbReady = false;
+function initFirebase(){
+  try{
+    if(!FIREBASE_CONFIG.projectId || !FIREBASE_CONFIG.apiKey){
+      console.info("Paper Sling: Firebase not configured — running in local mode.");
+      return;
+    }
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.firestore();
+    fbReady = true;
+    console.info("Paper Sling: Firebase connected ✔");
+  }catch(e){ console.warn("Paper Sling: Firebase init failed —", e.message); fbReady = false; }
+}
+async function saveSling(rec){
+  if(!fbReady || !db) return;
+  try{ await db.collection("slings").add({ ...rec, ts: Date.now() }); }
+  catch(e){ console.warn("saveSling failed:", e.message); }
+}
+function subscribeSlings(){
+  if(!fbReady || !db) return;
+  db.collection("slings").orderBy("ts","desc").limit(300).onSnapshot(
+    snap => {
+      const docs = snap.docs.map(d => ({ id:d.id, ...d.data() }))
+        .filter(d => typeof d.lat === "number" && typeof d.lng === "number");
+      messages = docs.length ? docs : [...SEED_MESSAGES];   // keep seeds if collection is empty
+      renderMarkers();
+    },
+    err => console.warn("subscribeSlings failed (check Firestore rules):", err.message)
+  );
+}
+
+/* ============================================================================
+   ✉️  FREE EMAIL (EmailJS) — OPTIONAL
+   ----------------------------------------------------------------------------
+   Leave blank to skip entirely. To enable: make a free account at emailjs.com,
+   create a service + template, then paste the 3 IDs and a recipient below.
+   If anything fails (no config / network / quota), it is caught and ignored.
+   ============================================================================ */
+const EMAIL_CONFIG = {
+  publicKey:  "",   // EmailJS "Public Key"
+  serviceId:  "",   // EmailJS Service ID
+  templateId: "",   // EmailJS Template ID
+  toEmail:    ""    // where the notification goes
+};
+let mailReady = false;
+function initMailer(){
+  try{
+    if(EMAIL_CONFIG.publicKey && window.emailjs){
+      emailjs.init({ publicKey: EMAIL_CONFIG.publicKey });
+      mailReady = true;
+      console.info("Paper Sling: EmailJS ready ✔");
+    }
+  }catch(e){ mailReady=false; }
+}
+async function sendWishEmail(rec){
+  if(!mailReady || !EMAIL_CONFIG.serviceId || !EMAIL_CONFIG.templateId) return; // not set up → skip
+  try{
+    await emailjs.send(EMAIL_CONFIG.serviceId, EMAIL_CONFIG.templateId, {
+      to_email: EMAIL_CONFIG.toEmail,
+      wish: rec.wish, from_city: rec.fromCity, to_city: rec.toCity, distance: rec.distance
+    });
+  }catch(e){ console.warn("Paper Sling: email skipped —", e?.text || e?.message || e); } // fallback: move on
+}
+
+/* ---------- great-circle distance + land snapping (no ocean landings) ---------- */
+function distKm(la1, lo1, la2, lo2){
+  const R=6371, r=x=>x*Math.PI/180;
+  const dLa=r(la2-la1), dLo=r(lo2-lo1);
+  const s=Math.sin(dLa/2)**2 + Math.cos(r(la1))*Math.cos(r(la2))*Math.sin(dLo/2)**2;
+  return 2*R*Math.asin(Math.sqrt(s));
+}
+// Curated world cities (all on land) — landings snap to the nearest one.
+const CITIES=[
+  ["Reykjavík","Iceland",64.13,-21.95],["London","UK",51.51,-0.13],["Paris","France",48.86,2.35],
+  ["Madrid","Spain",40.42,-3.70],["Lisbon","Portugal",38.72,-9.14],["Rome","Italy",41.90,12.50],
+  ["Berlin","Germany",52.52,13.40],["Oslo","Norway",59.91,10.75],["Stockholm","Sweden",59.33,18.07],
+  ["Moscow","Russia",55.75,37.62],["Athens","Greece",37.98,23.73],["Istanbul","Türkiye",41.01,28.98],
+  ["Cairo","Egypt",30.04,31.24],["Lagos","Nigeria",6.52,3.38],["Nairobi","Kenya",-1.29,36.82],
+  ["Cape Town","South Africa",-33.92,18.42],["Marrakesh","Morocco",31.63,-7.99],["Addis Ababa","Ethiopia",9.03,38.74],
+  ["Dubai","UAE",25.20,55.27],["Tehran","Iran",35.69,51.39],["Riyadh","Saudi Arabia",24.71,46.68],
+  ["Karachi","Pakistan",24.86,67.01],["Delhi","India",28.61,77.21],["Mumbai","India",19.08,72.88],
+  ["Kolkata","India",22.57,88.36],["Bengaluru","India",12.97,77.59],["Kathmandu","Nepal",27.72,85.32],
+  ["Dhaka","Bangladesh",23.81,90.41],["Bangkok","Thailand",13.76,100.50],["Hanoi","Vietnam",21.03,105.85],
+  ["Singapore","Singapore",1.35,103.82],["Jakarta","Indonesia",-6.21,106.85],["Manila","Philippines",14.60,120.98],
+  ["Beijing","China",39.90,116.41],["Shanghai","China",31.23,121.47],["Hong Kong","China",22.32,114.17],
+  ["Seoul","South Korea",37.57,126.98],["Tokyo","Japan",35.68,139.69],["Kyoto","Japan",35.01,135.77],
+  ["Sydney","Australia",-33.87,151.21],["Melbourne","Australia",-37.81,144.96],["Perth","Australia",-31.95,115.86],
+  ["Auckland","New Zealand",-36.85,174.76],["Queenstown","New Zealand",-45.03,168.66],
+  ["Honolulu","USA",21.31,-157.86],["Anchorage","USA",61.22,-149.90],["Vancouver","Canada",49.28,-123.12],
+  ["Toronto","Canada",43.65,-79.38],["New York","USA",40.71,-74.01],["Chicago","USA",41.88,-87.63],
+  ["Los Angeles","USA",34.05,-118.24],["Mexico City","Mexico",19.43,-99.13],["Havana","Cuba",23.11,-82.37],
+  ["Bogotá","Colombia",4.71,-74.07],["Lima","Peru",-12.05,-77.04],["Santiago","Chile",-33.45,-70.67],
+  ["Buenos Aires","Argentina",-34.60,-58.38],["Rio de Janeiro","Brazil",-22.91,-43.17],["São Paulo","Brazil",-23.55,-46.63],
+  ["Ushuaia","Argentina",-54.80,-68.30],["Reine","Norway",67.93,13.09],["Petra","Jordan",30.33,35.44],
+  ["Tbilisi","Georgia",41.72,44.83],["Almaty","Kazakhstan",43.24,76.89],["Tashkent","Uzbekistan",41.30,69.24]
+].map(c=>({city:c[0],country:c[1],lat:c[2],lng:c[3]}));
+function nearestCity(lat,lng){
+  let best=CITIES[0], bd=Infinity;
+  for(const c of CITIES){ const d=distKm(lat,lng,c.lat,c.lng); if(d<bd){ bd=d; best=c; } }
+  return best;
+}
+
+/* ---------- stamp generator ---------- */
+function stampSVG(city,country,size,colorVar){
+  const col=colorVar||"var(--ink-stamp)";
+  const date=new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}).toUpperCase();
+  const rot=(Math.random()*16-8).toFixed(1);
+  return `<svg viewBox="0 0 120 120" width="${size}" height="${size}" style="transform:rotate(${rot}deg)">
+    <g fill="none" stroke="${col}" stroke-width="2.4" opacity="0.85">
+      <circle cx="60" cy="60" r="52"/><circle cx="60" cy="60" r="44"/>
+    </g>
+    <g fill="${col}" opacity="0.9">
+      ${Array.from({length:28}).map((_,i)=>{const a=i/28*Math.PI*2;
+        return `<circle cx="${(60+48*Math.cos(a)).toFixed(1)}" cy="${(60+48*Math.sin(a)).toFixed(1)}" r="1.1"/>`}).join("")}
+    </g>
+    <g text-anchor="middle" font-family="'Courier Prime',monospace" fill="${col}" opacity="0.95">
+      <text x="60" y="42" font-size="9" letter-spacing="1.5" font-weight="700">${(country||'').toUpperCase()}</text>
+      <text x="60" y="62" font-size="11" font-weight="700" letter-spacing="0.5">${city.toUpperCase()}</text>
+      <line x1="30" y1="72" x2="90" y2="72" stroke="${col}" stroke-width="1.4" opacity="0.6"/>
+      <text x="60" y="82" font-size="7.5" letter-spacing="1" font-weight="700">PAPER SLING</text>
+      <text x="60" y="96" font-size="8" letter-spacing="1" font-weight="700">${date}</text>
+    </g>
+  </svg>`;
+}
+
+/* ---------- gamified state & physics ---------- */
+// Default origin (used until/unless the browser shares a precise location).
+let origin = { lat: 28.4089, lng: 77.3178 };
+let originCity = "Faridabad";
+let originCountry = "India";
+
+let phase = 0, busy = false;
+let windFactor = 350;   // km of distance per unit of strength, randomised each round (200–500)
+let streak = 0, lastThrow = 0, stampCount = Number(localStorage.getItem("ps_stamps")||0);
+let audioOn = false, actx = null;
+const tierColors={Common:"var(--ink-stamp2)",Uncommon:"#2f8c5d",Rare:"#2f5d8c",Legendary:"#b6442f",Mythic:"#8a4fb6"};
+
+/* ---------- leaflet setup ---------- */
+let satMap, satMarker;
+function initLeaflet() {
+  if (satMap) return;
+  satMap = L.map('satellite-map', { zoomControl: false, attributionControl: false }).setView([0,0], 2);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom: 18, attribution: 'Tiles &copy; Esri'
+  }).addTo(satMap);
+}
+
+/* ---------- globe ---------- */
+const NIGHT="https://unpkg.com/three-globe@2.31.0/example/img/earth-night.jpg";
+const arcs=[], planes=[];
+
+// Every saved wish becomes a clickable pin. Seed a few so the globe isn't empty offline.
+let messages = [];
+const SEED_MESSAGES = [
+  {lat:48.86,lng:2.35,  wish:"keep the porch light on",        fromCity:"Tokyo",   toCity:"Paris"},
+  {lat:40.71,lng:-74.01,wish:"may your coffee always be warm",fromCity:"Lisbon",  toCity:"New York"},
+  {lat:-33.92,lng:18.42,wish:"one day, the northern lights",  fromCity:"Cairo",   toCity:"Cape Town"},
+  {lat:35.68,lng:139.69,wish:"safe travels, whoever you are", fromCity:"Sydney",  toCity:"Tokyo"},
+  {lat:19.43,lng:-99.13,wish:"someone is thinking of you",    fromCity:"Bogotá",  toCity:"Mexico City"}
+];
+
+function makePin(d){
+  const el=document.createElement("div");
+  el.className="globe-pin";
+  el.innerHTML=`<div class="ring"></div><div class="dot"></div><div class="tag">✉️</div>`;
+  el.title=(d.wish||"a wish");
+  el.addEventListener("click", ev => { ev.stopPropagation(); openMessageOnMap(d); });
+  return el;
+}
+// Render markers on BOTH layers: a glowing point (always reliable) + a fancy ✉️ html pin.
+function renderMarkers(){
+  const data=[...messages];
+  world.pointsData(data);
+  world.htmlElementsData(data);
+}
+
+const world=Globe()($("globe"))
+  .globeImageUrl(NIGHT).backgroundColor("rgba(0,0,0,0)")
+  .atmosphereColor("#ffcf8a").atmosphereAltitude(0.18)
+  .arcColor(()=>["rgba(255,205,130,.95)","rgba(255,140,60,.2)"])
+  .arcDashLength(0.45).arcDashGap(1.4).arcDashAnimateTime(2200).arcStroke(0.6).arcAltitudeAutoScale(0.5)
+  .pointsData(messages).pointLat("lat").pointLng("lng").pointColor(()=>"#ffce82")
+  .pointAltitude(0.01).pointRadius(0.45).pointsMerge(false)
+  .onPointClick(d=>openMessageOnMap(d))
+  .htmlElementsData(messages).htmlLat(d=>d.lat).htmlLng(d=>d.lng).htmlAltitude(0.012).htmlElement(makePin);
+world.controls().autoRotate=true; world.controls().autoRotateSpeed=1.2;
+world.controls().enableZoom=false;
+world.pointOfView({lat: origin.lat, lng: origin.lng, altitude: 2.2}, 0);
+addEventListener("resize", () => world.width(innerWidth).height(innerHeight));
+world.width(innerWidth).height(innerHeight);
+
+/* ---------- audio ---------- */
+function chime(f=520,d=.5,t="sine",v=.12){
+  if(!audioOn)return; actx=actx||new(window.AudioContext||window.webkitAudioContext)();
+  const o=actx.createOscillator(),g=actx.createGain();o.type=t;o.frequency.value=f;
+  o.connect(g);g.connect(actx.destination);g.gain.setValueAtTime(0,actx.currentTime);
+  g.gain.linearRampToValueAtTime(v,actx.currentTime+.05);
+  g.gain.exponentialRampToValueAtTime(.0001,actx.currentTime+d);o.start();o.stop(actx.currentTime+d);
+}
+
+let stretchOsc, stretchGain;
+function startStretch() {
+  if(!audioOn) return; actx=actx||new(window.AudioContext||window.webkitAudioContext)();
+  stretchOsc = actx.createOscillator(); stretchOsc.type = "sawtooth";
+  stretchOsc.frequency.setValueAtTime(40, actx.currentTime);
+  stretchOsc.frequency.linearRampToValueAtTime(140, actx.currentTime + 1.2);
+  const filt = actx.createBiquadFilter(); filt.type = "lowpass"; filt.frequency.value = 400;
+  stretchGain = actx.createGain(); stretchGain.gain.setValueAtTime(0, actx.currentTime);
+  stretchGain.gain.linearRampToValueAtTime(0.15, actx.currentTime + 0.1);
+  stretchOsc.connect(filt); filt.connect(stretchGain); stretchGain.connect(actx.destination);
+  stretchOsc.start();
+}
+function stopStretch() {
+  if(stretchGain) {
+    stretchGain.gain.linearRampToValueAtTime(0.01, actx.currentTime + 0.1);
+    setTimeout(()=>stretchOsc && stretchOsc.stop(), 100); stretchGain = null;
+  }
+}
+function playSnap() {
+  if(!audioOn) return; actx=actx||new(window.AudioContext||window.webkitAudioContext)();
+  const len = actx.sampleRate * 0.1; const buf = actx.createBuffer(1, len, actx.sampleRate);
+  const data = buf.getChannelData(0); for(let i=0;i<len;i++) data[i] = Math.random()*2-1;
+  const src = actx.createBufferSource(); src.buffer = buf;
+  const gain = actx.createGain(); gain.gain.setValueAtTime(0.6, actx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.1);
+  const filt = actx.createBiquadFilter(); filt.type = "highpass"; filt.frequency.value = 2000;
+  src.connect(filt); filt.connect(gain); gain.connect(actx.destination); src.start();
+}
+
+$("sound").onclick=()=>{audioOn=!audioOn;$("sound").classList.toggle("on",audioOn);
+  $("snd-wave").style.display=audioOn?"":"none";$("snd-m1").style.display=audioOn?"none":"";
+  $("snd-m2").style.display=audioOn?"none":"";if(audioOn)chime(660,.3);};
+
+/* ---------- Reverse Geocode API ---------- */
+async function reverseGeocode(lat, lng){
+  try{
+    const r=await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`,{cache:"no-store"});
+    const d=await r.json();
+    return {city: d.city || d.locality || d.principalSubdivision || "Unknown", country: d.countryName || "The Ocean"};
+  }catch(e){return {city:"Uncharted Waters", country:"The Ocean"};}
+}
+
+/* ---------- Use the visitor's real location (falls back to default) ---------- */
+async function locate(){
+  const gps = await new Promise(res=>{
+    if(!navigator.geolocation) return res(null);
+    navigator.geolocation.getCurrentPosition(
+      p=>res({lat:p.coords.latitude, lng:p.coords.longitude}),
+      ()=>res(null),
+      {enableHighAccuracy:true, timeout:9000, maximumAge:600000});
+  });
+  if(!gps) return; // keep default origin
+  origin = {lat:gps.lat, lng:gps.lng};
+  const g = await reverseGeocode(gps.lat, gps.lng);
+  if(g && g.city && g.city!=="Uncharted Waters" && g.city!=="Unknown"){
+    originCity = g.city; originCountry = g.country;
+  }
+  $("from").innerHTML = `writing from <b>${originCity}, ${originCountry}</b>`;
+  world.pointOfView({lat:origin.lat, lng:origin.lng, altitude:2.2}, 0);
+}
+
+/* ---------- Mascot guide (comic speech bubble + moods) ---------- */
+// Each mood swaps the emoji (always reliable) and a Lottie character (if it loads).
+const MASCOT_MOODS={
+  idle:  {emoji:"🕊️", lottie:"https://assets10.lottiefiles.com/packages/lf20_touohxv0.json"},
+  happy: {emoji:"😄", lottie:"https://assets9.lottiefiles.com/packages/lf20_kkflmtur.json"},
+  wow:   {emoji:"🤩", lottie:"https://assets2.lottiefiles.com/packages/lf20_zrqthn6o.json"},
+  think: {emoji:"🤔", lottie:"https://assets3.lottiefiles.com/packages/lf20_uwR49r.json"},
+  sad:   {emoji:"😅", lottie:"https://assets5.lottiefiles.com/packages/lf20_ydo1amjm.json"}
+};
+function setMascotMood(m){
+  const mood=MASCOT_MOODS[m]||MASCOT_MOODS.idle;
+  const em=document.querySelector("#mascot .avatar-emoji"); if(em) em.textContent=mood.emoji;
+  const lp=document.querySelector("#mascot lottie-player");
+  if(lp && mood.lottie && lp.getAttribute("src")!==mood.lottie) lp.setAttribute("src", mood.lottie);
+}
+let mascotTimer;
+function mascotSay(text, mood, hold=4600){
+  if(typeof mood==="number"){ hold=mood; mood=null; }   // allow mascotSay(text, hold)
+  if(mood) setMascotMood(mood);
+  const b=$("mascotBubble");
+  b.textContent=text; b.classList.add("show");
+  clearTimeout(mascotTimer);
+  if(hold>0) mascotTimer=setTimeout(()=>b.classList.remove("show"), hold);
+}
+
+/* ---------- Celebration lottie (confetti) on great throws ---------- */
+function celebrate(){
+  const c=$("celebrate"); if(!c) return;
+  c.classList.add("show");
+  clearTimeout(c._t); c._t=setTimeout(()=>c.classList.remove("show"), 2600);
+}
+
+/* ---------- Browse a saved wish: zoom globe → satellite map ---------- */
+let browseMarker;
+function openMessageOnMap(d){
+  if(busy) return;
+  world.controls().autoRotate=false;
+  world.pointOfView({lat:d.lat, lng:d.lng, altitude:0.5}, 1000);
+  $("mapBack").classList.add("show");   // show "Back to globe" right away, even while zooming
+  mascotSay("A wish landed here 💌 take a look!", "happy", 4000);
+  setTimeout(()=>{
+    initLeaflet();
+    satMap.setView([d.lat, d.lng], 11);
+    $("satellite-map").classList.add("active");
+    satMap.invalidateSize();
+    showMapMessage(d);
+  }, 1050);
+}
+function showMapMessage(d){
+  if(browseMarker) browseMarker.removeFrom(satMap);
+  const html=`<div class="map-pin">💌</div>`;
+  browseMarker=L.marker([d.lat,d.lng],{icon:L.divIcon({className:'',html,iconSize:[44,44],iconAnchor:[22,22]})}).addTo(satMap);
+  const from=d.fromCity?`<br><span style="opacity:.7;font-size:13px">slung from ${d.fromCity}</span>`:"";
+  browseMarker.bindPopup(`<div style="font-family:'Caveat',cursive;font-size:20px;line-height:1.2;max-width:210px">“${d.wish||'a wish'}”${from}</div>`).openPopup();
+}
+function exitMap(){
+  if(browseMarker){ browseMarker.removeFrom(satMap); browseMarker=null; }
+  $("satellite-map").classList.remove("active");
+  $("mapBack").classList.remove("show");
+  world.pointOfView({lat:origin.lat, lng:origin.lng, altitude:2.2}, 1200); // zoom back out
+  world.controls().autoRotate=true;
+  showWriteFab(true);
+}
+$("mapBack").onclick=exitMap;
+
+/* ---------- Boot Sequence ---------- */
+$("s-stamps").textContent=fmt(stampCount);
+// If a Lottie can't load, hide it so its broken/caution icon never shows
+// (the emoji / SVG fallbacks underneath stay visible).
+function guardLotties(){
+  document.querySelectorAll("lottie-player").forEach(lp=>{
+    const hide=()=>{ lp.style.display="none"; };
+    lp.addEventListener("error", hide);
+    lp.addEventListener("load_error", hide);
+  });
+}
+guardLotties();
+// When the Lottie loader is ready, hide the SVG fallback behind it
+$("loaderLottie") && $("loaderLottie").addEventListener("ready", () => {
+  const fb=$("loaderFallback"); if(fb) fb.style.opacity="0";
+});
+window.onload = () => {
+  // Real location + warm up the satellite map in the background
+  locate();
+  initLeaflet();
+  initMailer();
+
+  // Always show seed pins first so the globe is never empty…
+  messages = [...SEED_MESSAGES];
+  renderMarkers();
+  // …then connect Firebase (if configured) to stream the real wishes on top.
+  initFirebase();
+  if(fbReady){ subscribeSlings(); }
+
+  // 1. Play Loader for 2.5s
+  setTimeout(() => {
+    $("loader").classList.add("hide");
+  }, 2500);
+
+  // 2. Show spinning globe for 3s, then transition to Studio
+  setTimeout(() => {
+    $("globe").classList.add("hidden");
+    $("studio").classList.add("active");
+    mascotSay("Hi! I'm Quill 🕊️ Write a little wish to anyone, anywhere on Earth!", "happy", 6000);
+  }, 5500);
+};
+
+/* ---------- Paper Studio ---------- */
+let stamped=false;
+// Stamp the paper's corner automatically as soon as there's something written.
+function applyPaperStamp(){
+  const ps=$("paperStamp");
+  ps.innerHTML=stampSVG(originCity,originCountry,72,"var(--ink-stamp)");
+  ps.classList.add("show");
+  const svg=ps.querySelector("svg");
+  if(svg){ const base=svg.style.transform||"";
+    svg.animate([
+      {opacity:0, transform:`${base} scale(1.9) rotate(-18deg)`},
+      {opacity:1, transform:`${base} scale(.92)`, offset:.7},
+      {opacity:1, transform:`${base} scale(1)`}
+    ],{duration:430, easing:"cubic-bezier(.2,.9,.3,1)", fill:"forwards"}); }
+  chime(380,.25,"triangle",.12);
+}
+$("wish").addEventListener("input", ()=>{
+  if(phase!==0) return;
+  const has=$("wish").value.trim().length>0;
+  $("action-btn").disabled=!has;
+  if(has && !stamped){
+    stamped=true;
+    applyPaperStamp();
+    $("hint").textContent="Sealed & stamped — now crumple it!";
+    mascotSay("Sealed from "+originCity+"! Now crumple it into a ball 🗞️", "happy");
+  } else if(!has && stamped){
+    stamped=false;
+    $("paperStamp").classList.remove("show");
+    $("paperStamp").innerHTML="";
+    $("hint").textContent="Write your note to anyone, anywhere on Earth…";
+  }
+});
+
+$("action-btn").onclick=()=>{
+  if(busy||$("action-btn").disabled)return;
+  
+  // Crumple
+  phase=1;
+  $("sheet").classList.add("crumpled");
+  $("wish").style.opacity="0"; $("status-tag").style.opacity="0";
+  $("action-btn").innerHTML=`<svg viewBox="0 0 24 24"><path d="M12 22V12M8 4l4 8 4-8"/></svg> Load Slingshot`;
+  $("hint").textContent="Your wish is crumpled and ready.";
+  
+  // Transition to Sling Phase
+  setTimeout(() => {
+    phase=2;
+    $("studio").classList.remove("active");
+    $("studio").classList.add("hidden");
+
+    // Roll this round's "wind" — distance earned per unit of strength (200–500 km)
+    windFactor = 200 + Math.floor(Math.random()*301);
+    $("smWind").textContent = "×"+windFactor+" km";
+
+    // Bring back Globe and show Slingshot
+    $("globe").classList.remove("hidden");
+    $("slingshotView").classList.add("active");
+    $("slingHint").textContent = "Drag to aim • release in the green zone! (×"+windFactor+" km/power)";
+    $("slingHint").classList.add("show");
+    mascotSay("Tailwind today is ×"+windFactor+" km! Drag to aim, then release in the green STRENGTH zone 💪", 6000);
+  }, 1000);
+};
+
+/* ---------- Gamified Drag-to-Aim Mechanics ---------- */
+let isDragging = false;
+let startX, startY;
+const maxPullDist = 120; // max pixels you can pull back
+
+/* Strength challenge: a power bar bounces 0→100→0 while you pull.
+   Release timing = your strength. Land it in the green sweet zone for a bonus. */
+let strengthVal = 0, strengthDir = 1, strengthRAF = 0;
+function startStrengthMeter(){
+  strengthVal = 0; strengthDir = 1;
+  $("strengthMeter").classList.add("active");
+  const step = () => {
+    strengthVal += strengthDir * 0.02;
+    if(strengthVal >= 1){ strengthVal = 1; strengthDir = -1; }
+    else if(strengthVal <= 0){ strengthVal = 0; strengthDir = 1; }
+    $("smFill").style.height = (strengthVal*100) + "%";
+    $("smFill").classList.toggle("in-sweet", strengthVal>=0.65 && strengthVal<=0.85);
+    strengthRAF = requestAnimationFrame(step);
+  };
+  strengthRAF = requestAnimationFrame(step);
+}
+function stopStrengthMeter(){
+  cancelAnimationFrame(strengthRAF);
+  $("strengthMeter").classList.remove("active");
+}
+
+function updateAimHud(dx, dy) {
+  // Calculate power and angle based on drag delta
+  const dist = Math.min(Math.sqrt(dx*dx + dy*dy), maxPullDist);
+  const power = dist / maxPullDist; // 0 to 1
+  
+  // Angle for UI rotation
+  const angleRad = Math.atan2(dy, dx);
+  const angleDeg = angleRad * (180 / Math.PI);
+  
+  // Rotate the HUD container so the arrow points opposite of pull
+  // Base rotation: if pulled straight down (dy > 0), arrow points UP (0 deg)
+  const rotation = angleDeg + 90; 
+  $("aimHud").style.transform = `translateX(-50%) rotate(${rotation}deg)`;
+  
+  // Stretch the arrow based on power
+  const lineLength = 20 + (power * 100);
+  $("aimLine").setAttribute("d", `M150 150 L150 ${150 - lineLength}`);
+  $("aimHead").setAttribute("points", `150,${150 - lineLength - 10} 142,${150 - lineLength + 5} 158,${150 - lineLength + 5}`);
+  
+  return { power, angleRad };
+}
+
+function onDragStart(e) {
+  if (phase !== 2) return;
+  isDragging = true;
+  let ev = e.touches ? e.touches[0] : e;
+  startX = ev.clientX; startY = ev.clientY;
+  
+  $("pouchBall").style.transition = "none";
+  $("aimHud").classList.add("show");
+  $("slingHint").classList.remove("show");
+  startStretch();
+  startStrengthMeter();
+}
+
+function onDragMove(e) {
+  if (!isDragging) return;
+  e.preventDefault(); // stop scrolling
+  let ev = e.touches ? e.touches[0] : e;
+  let dx = ev.clientX - startX;
+  let dy = ev.clientY - startY;
+  
+  // Limit the visual pull distance
+  let dist = Math.sqrt(dx*dx + dy*dy);
+  if(dist > maxPullDist) { dx = (dx/dist)*maxPullDist; dy = (dy/dist)*maxPullDist; }
+  
+  $("pouchBall").style.transform = `translate(calc(-50% + ${dx}px), calc(-50% - 20px + ${dy}px))`;
+  
+  // Map to SVG coordinates for rubber bands
+  $("band-left").setAttribute("x2", 120 + dx);
+  $("band-left").setAttribute("y2", 90 + dy);
+  $("band-right").setAttribute("x2", 120 + dx);
+  $("band-right").setAttribute("y2", 90 + dy);
+  
+  updateAimHud(dx, dy);
+}
+
+function onDragEnd(e) {
+  if (!isDragging) return;
+  isDragging = false;
+  
+  let ev = e.changedTouches ? e.changedTouches[0] : e;
+  let dx = ev.clientX - startX;
+  let dy = ev.clientY - startY;
+  let dist = Math.sqrt(dx*dx + dy*dy);
+  
+  // Lock in the strength at the moment of release, then stop the meter
+  const strength = strengthVal;
+  $("aimHud").classList.remove("show");
+  stopStretch();
+  stopStrengthMeter();
+
+  if(dist < 30) {
+    // Cancel shot if barely pulled
+    $("pouchBall").style.transition = "transform 0.3s ease-out";
+    $("pouchBall").style.transform = `translate(-50%, calc(-50% - 20px))`;
+    $("band-left").setAttribute("x2", 120); $("band-left").setAttribute("y2", 90);
+    $("band-right").setAttribute("x2", 120); $("band-right").setAttribute("y2", 90);
+    $("slingHint").classList.add("show");
+    return;
+  }
+
+  // Shoot! Aim (bearing) comes from the drag angle; STRENGTH comes from the meter.
+  let angleRad = Math.atan2(dy, dx);
+  firePaperSling(strength, angleRad);
+}
+
+$("pouchBall").addEventListener("mousedown", onDragStart);
+$("pouchBall").addEventListener("touchstart", onDragStart, {passive:false});
+document.addEventListener("mousemove", onDragMove);
+document.addEventListener("touchmove", onDragMove, {passive:false});
+document.addEventListener("mouseup", onDragEnd);
+document.addEventListener("touchend", onDragEnd);
+
+/* ---------- The Math: Calculating Destination ---------- */
+function getDestination(lat1, lon1, distanceKm, bearingDeg) {
+  const R = 6371; // Earth's radius
+  const d = distanceKm / R;
+  const brng = bearingDeg * Math.PI / 180;
+  const lat1Rad = lat1 * Math.PI / 180;
+  const lon1Rad = lon1 * Math.PI / 180;
+
+  const lat2Rad = Math.asin(Math.sin(lat1Rad)*Math.cos(d) + Math.cos(lat1Rad)*Math.sin(d)*Math.cos(brng));
+  const lon2Rad = lon1Rad + Math.atan2(Math.sin(brng)*Math.sin(d)*Math.cos(lat1Rad), Math.cos(d) - Math.sin(lat1Rad)*Math.sin(lat2Rad));
+
+  return { lat: lat2Rad * 180 / Math.PI, lng: lon2Rad * 180 / Math.PI };
+}
+
+function rollTier(dist, sweet){
+  let r = Math.random() + (sweet ? 0.18 : 0) + Math.min(dist/20000, 0.15);
+  if(r>1.02) return {name:"Mythic", mult:5};
+  if(r>0.9) return {name:"Legendary", mult:3};
+  if(r>0.68) return {name:"Rare", mult:2};
+  if(r>0.4) return {name:"Uncommon", mult:1.5};
+  return {name:"Common", mult:1};
+}
+
+/* ---------- The Launch Sequence ---------- */
+async function firePaperSling(strength, angleRad) {
+  busy = true; phase = 3;
+
+  // 1. Geography Math — distance = strength × this round's wind factor (200–500 km/power)
+  const maxWorldDist = 20037; // Max spherical distance on earth in km
+  const strengthUnits = strength * 40;            // strength (0–1) → up to 40 "power units"
+  const idealDist = clamp(Math.round(strengthUnits * windFactor), 200, maxWorldDist);
+
+  // Convert pull angle to map bearing (North = 0)
+  const bearing = (angleRad * 180 / Math.PI) - 90;
+  const ideal = getDestination(origin.lat, origin.lng, idealDist, bearing);
+
+  // Snap to the nearest real city so a wish NEVER lands in the ocean
+  const city = nearestCity(ideal.lat, ideal.lng);
+  const target = { lat: city.lat, lng: city.lng };
+  const destName = { city: city.city, country: city.country };
+  const distance = Math.max(200, Math.round(distKm(origin.lat, origin.lng, target.lat, target.lng)));
+
+  const sweet = strength >= 0.65 && strength <= 0.85;
+  const tier = rollTier(distance, sweet);
+  const wishText = $("wish").value.trim() || "A wish sent blindly to the winds";
+
+  // Mascot reacts to your throw
+  if(sweet){ mascotSay("PERFECT release! 🚀 A monster throw!", "wow", 3000); celebrate(); }
+  else if(strength < 0.3) mascotSay("Oof, a gentle toss 😅 a short hop…", "sad", 3000);
+  else mascotSay("Nice sling! Let's see where it lands… 🌬️", "happy", 3000);
+  
+  // Snap the slingshot bands visually
+  playSnap();
+  $("pouchBall").style.opacity="0";
+  $("band-left").setAttribute("y2", 50); $("band-right").setAttribute("y2", 50);
+  setTimeout(()=>{ $("band-left").setAttribute("y2", 62); $("band-right").setAttribute("y2", 62); }, 110);
+  
+  // Hide UI
+  setTimeout(() => { $("slingshotView").classList.remove("active"); }, 300);
+
+  // Animate projectile leaving screen
+  const ball = document.createElement("div"); ball.className="flying-ball";
+  ball.style.left="50%"; ball.style.bottom="120px"; document.body.appendChild(ball);
+  ball.animate([
+    {transform:"translate(-50%, 0) scale(1) rotate(0deg)", opacity:1, offset:0},
+    {transform:`translate(-50%, -${innerHeight}px) scale(0.1) rotate(900deg)`, opacity:0, offset:1}
+  ], {duration:800, easing:"ease-in", fill:"forwards"}).onfinish = () => ball.remove();
+
+  chime(523,.5); if(sweet) chime(784,.5,"sine",.1);
+
+  // Globe animation to target location
+  arcs.push({startLat: origin.lat, startLng: origin.lng, endLat: target.lat, endLng: target.lng});
+  world.controls().autoRotate = false;
+  
+  setTimeout(() => {
+    world.arcsData([...arcs]);
+    world.pointOfView({lat: target.lat, lng: target.lng, altitude: 1.5}, 1200);
+  }, 800);
+
+  // Zoom into Satellite Map
+  setTimeout(() => {
+    world.pointOfView({lat: target.lat, lng: target.lng, altitude: 0.02}, 1600);
+  }, 2000);
+
+  // Switch to the (preloaded) Leaflet satellite view, fading it in over the globe
+  setTimeout(() => {
+    initLeaflet();
+    satMap.setView([target.lat, target.lng], 12);
+    $("satellite-map").classList.add("active");
+    satMap.invalidateSize(); // container was hidden until now
+  }, 3500);
+
+  // Drop the Firey Meteor
+  setTimeout(() => {
+    dropMeteor(target, distance, tier, wishText, sweet, destName);
+  }, 4000);
+}
+
+function dropMeteor(target, distance, tier, wishText, sweet, destName) {
+  const ball = document.createElement("div");
+  ball.className = "meteor-ball"; ball.style.top = "-150px";
+  document.body.appendChild(ball);
+
+  const dy = (innerHeight / 2) + 150; 
+  ball.animate([
+    { transform: "translateX(-50%) translateY(0) scale(1.4)" },
+    { transform: `translateX(-50%) translateY(${dy}px) scale(0.6)` }
+  ], { duration: 600, easing: "ease-in" }).onfinish = () => {
+    ball.remove();
+    
+    // Impact!
+    chime(100, 0.9, "square", 0.4); 
+    document.body.style.animation = "impactShake 0.4s ease-out";
+    setTimeout(() => document.body.style.animation = "", 400);
+
+    const flash = document.createElement("div"); flash.className = "impact-flash";
+    document.body.appendChild(flash);
+    flash.animate([
+      { opacity: 1, transform: "scale(0.1)" },
+      { opacity: 0, transform: "scale(3)" }
+    ], { duration: 800, easing: "ease-out" }).onfinish = () => flash.remove();
+
+    // Map Marker
+    if(satMarker) satMarker.removeFrom(satMap);
+    const iconHtml = `<div class="sheet crumpled" style="width:40px;height:40px;box-shadow:0 8px 16px rgba(0,0,0,0.8)!important;"></div>`;
+    satMarker = L.marker([target.lat, target.lng], {
+      icon: L.divIcon({ className: '', html: iconHtml, iconSize: [40, 40], iconAnchor: [20, 20] })
+    }).addTo(satMap);
+    
+    // Tally Results
+    setTimeout(() => {
+      streak = (performance.now()-lastThrow < 35000) ? streak+1 : 1;
+      lastThrow = performance.now();
+      const score = Math.round(distance * tier.mult * (1 + (streak-1)*0.25) * (sweet?1.3:1) / 10);
+
+      stampCount++; localStorage.setItem("ps_stamps", stampCount); $("s-stamps").textContent=fmt(stampCount);
+
+      // Persist this wish + drop a pin on the globe
+      const rec = {
+        wish: wishText,
+        fromCity: originCity, fromCountry: originCountry, fromLat: origin.lat, fromLng: origin.lng,
+        toCity: destName.city, toCountry: destName.country,
+        lat: target.lat, lng: target.lng,
+        distance, tier: tier.name, score
+      };
+      saveSling(rec);                                   // → Firestore (if configured)
+      sendWishEmail(rec);                               // → EmailJS (optional, non-blocking)
+      // Show the new pin instantly (if subscribed, the snapshot will reconcile it).
+      messages.unshift({ ...rec, ts: Date.now() });
+      renderMarkers();
+
+      mascotSay("Touchdown in "+destName.city+"! 🌍 "+fmt(distance)+" km — amazing!", "happy", 5000);
+      showResult({ tier, distance, destName, wishText, score, streak });
+      busy = false;
+    }, 1500);
+  };
+}
+
+/* ---------- Result Card ---------- */
+function showResult({tier, distance, destName, wishText, score, streak}){
+  const col=tierColors[tier.name]||"var(--ink-stamp)";
+  const star=`<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M12 2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17.8 5.9 20.4l1.5-6.8L2.2 9l6.9-.7z"/></svg>`;
+  $("r-tier").innerHTML=star+tier.name;$("r-tier").style.color=col;
+  $("r-dist").textContent=fmt(distance);
+  
+  const arrow=`<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="var(--ink-soft)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6"/></svg>`;
+  $("r-route").innerHTML=`<b>${originCity}</b>${arrow}<b>${destName.city}</b>`;
+  $("r-stamp").innerHTML=stampSVG(destName.city, destName.country, 96, col);
+  $("r-wish").textContent="“"+wishText+"”";
+  $("r-score").textContent=fmt(score);
+  $("r-streak").textContent="×"+streak;
+  $("r-stampn").textContent=fmt(stampCount);
+  $("r-note").innerHTML=`Someone who loves you sent this out into the world 💛<br>One day, they'll take you to <b>${destName.city}, ${destName.country}</b> — to unfold it together.`;
+  $("scrim").classList.add("show");
+}
+
+/* ---------- Paper view ⇄ Globe explore ---------- */
+function showWriteFab(s){ $("writeFab").classList.toggle("show", !!s); }
+
+// Close the paper card and just explore the spinning globe + wish pins
+function gotoGlobe(){
+  $("scrim").classList.remove("show");
+  $("satellite-map").classList.remove("active");
+  $("mapBack").classList.remove("show");
+  $("studio").classList.remove("active");
+  $("studio").classList.add("hidden");
+  $("globe").classList.remove("hidden");
+  world.controls().autoRotate = true;
+  world.pointOfView({lat: origin.lat, lng: origin.lng, altitude: 2.2}, 1200);
+  showWriteFab(true);
+  mascotSay("Spin the globe 🌍 tap any ✉️ pin to read a wish — or write your own!", "happy", 6000);
+}
+
+// Reopen the paper card. If a sling already happened, start a fresh note;
+// otherwise keep whatever was being written.
+function openStudio(){
+  if(phase!==0) resetPaper();
+  $("scrim").classList.remove("show");
+  $("satellite-map").classList.remove("active");
+  $("mapBack").classList.remove("show");
+  $("globe").classList.add("hidden");
+  $("studio").classList.remove("hidden");
+  $("studio").classList.add("active");
+  showWriteFab(false);
+}
+
+$("studioClose").onclick = gotoGlobe;
+$("writeFab").onclick = openStudio;
+$("r-explore").onclick = gotoGlobe;
+
+/* ---------- Reset App State ---------- */
+// Wipe the paper, slingshot, meter and buttons back to a fresh writable note.
+function resetPaper(){
+  phase = 0;
+  // Un-crumple paper
+  $("sheet").classList.remove("crumpled");
+  $("sheet").style.display="block"; $("sheet").style.opacity="1";
+  $("wish").style.opacity="1"; $("wish").value="";
+  $("status-tag").style.opacity="1";
+  stamped=false;
+  $("paperStamp").classList.remove("show");
+  $("paperStamp").innerHTML="";
+
+  // Reset Slingshot
+  $("slingshotView").classList.remove("active");
+  $("pouchBall").style.transition="none";
+  $("pouchBall").style.transform="translate(-50%, calc(-50% - 20px))";
+  $("pouchBall").style.opacity="1";
+  $("band-left").setAttribute("x2", 120); $("band-left").setAttribute("y2", 90);
+  $("band-right").setAttribute("x2", 120); $("band-right").setAttribute("y2", 90);
+
+  // Reset Action Button
+  $("action-btn").disabled=true;
+  $("action-btn").innerHTML=`<svg viewBox="0 0 24 24"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg> Crumple`;
+  $("hint").textContent="Write your note to anyone, anywhere on Earth…";
+
+  // Reset strength meter
+  $("slingHint").classList.remove("show");
+  $("strengthMeter").classList.remove("active");
+  $("smFill").style.height="0%";
+}
+
+$("r-again").onclick = () => {
+  resetPaper();
+  world.pointOfView({lat: origin.lat, lng: origin.lng, altitude: 2.2}, 1200);
+  world.controls().autoRotate = true;
+  openStudio();
+  mascotSay("Got another wish? Let's send it somewhere new! ✍️", "happy", 5000);
+};
+
+</script>
+</body>
+</html>
