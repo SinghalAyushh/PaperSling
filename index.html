@@ -221,9 +221,16 @@
   .puzzle-box p { font-size: 15px; color:#6b4f2a; line-height: 1.5; margin-bottom: 20px;}
   .puzzle-box p b { color:#2a1c0c; }
   .puzzle-quote { font-family:"Fraunces",serif; font-style:italic; font-size:13.5px; color:#7a5a2c; line-height:1.55; margin: -6px 4px 22px; }
-  .math-q { font-size: 28px; font-family: "Courier Prime", monospace; color:#2a1c0c; margin-bottom: 15px; letter-spacing: 2px;}
-  .puzzle-box input { width: 120px; padding: 12px; font-size: 20px; text-align: center; border-radius: 8px; border: 1px solid rgba(120,90,40,.5); background: rgba(255,255,255,0.5); color:#2a1c0c; outline: none; margin-bottom: 15px;}
-  .puzzle-chances { font-size: 13px; color:#a23b2b; margin-bottom: 20px; font-weight: bold;}
+  .math-q { font-size: 19px; font-family: "Fraunces", serif; font-weight:500; color:#2a1c0c; margin: 4px 4px 16px; letter-spacing: 0; line-height:1.4; min-height:24px;}
+  .quiz-options { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin:0 0 16px; }
+  .quiz-opt { padding:12px 8px; font:inherit; font-size:15px; font-weight:600; cursor:pointer; border-radius:10px; border:1px solid rgba(120,90,40,.45); background:rgba(255,255,255,.55); color:#2a1c0c; transition:transform .1s, background .2s; font-family:"Courier Prime",monospace; }
+  .quiz-opt:hover { background:rgba(255,255,255,.8); }
+  .quiz-opt:active { transform:scale(.96); }
+  .quiz-opt.correct { background:#7be6a6 !important; border-color:#2f8c5d !important; color:#13351f !important; }
+  .quiz-opt.wrong { background:#ffb3b3 !important; border-color:#c0392b !important; color:#5a1a14 !important; animation:shakeX .3s; }
+  .quiz-opt:disabled { cursor:default; }
+  @keyframes shakeX { 0%,100%{transform:translateX(0);} 25%{transform:translateX(-5px);} 75%{transform:translateX(5px);} }
+  .puzzle-chances { font-size: 13px; color:#a23b2b; margin-bottom: 4px; font-weight: bold;}
 
   /* --- TOP ACTIONS: live counter + leaderboard --- */
   .top-actions{ display:flex; flex-direction:column; align-items:flex-end; gap:8px; pointer-events:none; }
@@ -249,11 +256,12 @@
   /* Vintage close button used inside the parchment cards */
   .vbtn{ background:rgba(120,90,40,.14) !important; border:1px solid rgba(120,90,40,.45) !important; color:#3a2a16 !important; }
 
-  /* --- GLOWING HEARTS ON THE GLOBE --- */
-  .globe-heart{ position:relative; pointer-events:none; transform:translate(-50%,-50%); font-size:16px; color:#ff4d6d;
-    text-shadow:0 0 6px rgba(255,77,109,.9), 0 0 14px rgba(255,77,109,.7), 0 0 22px rgba(255,120,150,.5);
-    animation:heartPulse 1.8s ease-in-out infinite; will-change:transform,opacity; }
-  @keyframes heartPulse{ 0%,100%{ transform:translate(-50%,-50%) scale(1); opacity:.85; } 50%{ transform:translate(-50%,-50%) scale(1.35); opacity:1; } }
+  /* --- GLOWING HEARTS ON THE GLOBE (globe.gl owns the outer transform) --- */
+  .globe-heart{ pointer-events:none; }
+  .globe-heart span{ display:block; font-size:18px; line-height:1; color:#ff4d6d;
+    text-shadow:0 0 6px rgba(255,77,109,.95), 0 0 14px rgba(255,77,109,.8), 0 0 24px rgba(255,120,150,.6);
+    animation:heartPulse 1.8s ease-in-out infinite; transform-origin:center; will-change:transform,opacity; }
+  @keyframes heartPulse{ 0%,100%{ transform:scale(1); opacity:.9; } 50%{ transform:scale(1.4); opacity:1; } }
 
   /* ============ RESPONSIVE (phones) ============ */
   @media (max-width: 560px){
@@ -500,13 +508,11 @@
         <h2>💌 A Surprise For You</h2>
         <p>A paper plane flew across the world from <b id="puz-sender" style="color:#a23b2b"></b> and landed right here, just for you.</p>
         <p class="puzzle-quote">Someone is thinking of you tonight and one day, they just might bring you to where this little plane landed. ✨</p>
-        <p style="font-size: 13px;">Solve the tiny riddle below to unfold your note:</p>
+        <p style="font-size: 13px;">Answer this little quiz to unfold your note:</p>
 
-        <div class="math-q" id="puz-question">12 + 15 = ?</div>
-        <input type="number" id="puz-answer" placeholder="Answer" />
+        <div class="math-q" id="puz-question">Loading…</div>
+        <div class="quiz-options" id="puz-options"></div>
         <p class="puzzle-chances" id="puz-chances">Chances left: 3</p>
-        
-        <button class="btn" style="background:linear-gradient(180deg,var(--halo),var(--ember-deep)); color:#2a1606; width:100%; border:none;" onclick="verifyPuzzle()">Unlock Note</button>
       </div>
     </div>
   </div>
@@ -1145,19 +1151,23 @@ function nearestCity(lat,lng){
   return best;
 }
 
+// Pull the camera back on small screens so the globe reads a little smaller on phones.
+const OVERVIEW_ALT = window.matchMedia("(max-width: 560px)").matches ? 3.0 : 2.2;
 const world=Globe()($("globe")).globeImageUrl("https://unpkg.com/three-globe/example/img/earth-night.jpg").backgroundColor("rgba(0,0,0,0)")
   .atmosphereColor("#ffcf8a").atmosphereAltitude(0.18).arcColor(()=>["rgba(255,205,130,.95)","rgba(255,140,60,.2)"])
   .arcDashLength(0.45).arcDashGap(1.4).arcDashAnimateTime(2200).arcStroke(0.6);
 world.controls().autoRotate=true; world.controls().enableZoom=false;
-world.pointOfView({lat: origin.lat, lng: origin.lng, altitude: 2.2}, 0);
+world.pointOfView({lat: origin.lat, lng: origin.lng, altitude: OVERVIEW_ALT}, 0);
 
 // Glowing hearts pinned on the globe wherever a sling has landed (live from Firebase).
 world.htmlElementsData([])
   .htmlLat(d => d.lat).htmlLng(d => d.lng).htmlAltitude(0.01)
   .htmlElement(() => {
+    // globe.gl positions this element via its own transform, so the pulse
+    // animation lives on an inner <span> to avoid overriding that transform.
     const el = document.createElement('div');
     el.className = 'globe-heart';
-    el.innerHTML = '❤';
+    el.innerHTML = '<span>❤</span>';
     return el;
   });
 
@@ -1201,7 +1211,7 @@ function fetchUserLocation() {
       }
       
       $("from").innerHTML = `writing from <b>${originCity}, ${originCountry}</b>`;
-      world.pointOfView({lat: origin.lat, lng: origin.lng, altitude: 2.2}, 1000);
+      world.pointOfView({lat: origin.lat, lng: origin.lng, altitude: OVERVIEW_ALT}, 1000);
       
     }, (error) => {
       console.warn("Geolocation denied or failed. Using defaults.", error);
@@ -1252,44 +1262,109 @@ function triggerReceiverMode(data) {
   $("topbar").style.display = "none";
   mascotSay("A surprise paper plane landed for you!");
   
-  world.pointOfView({lat: data.la, lng: data.lo, altitude: 0.5}, 2000);
-  
+  // Same cinematic as a sender's landing: globe zoom-in → fade in satellite map → zoom into Leaflet.
+  try { world.controls().autoRotate = false; } catch(e){}
+  world.pointOfView({lat: data.la, lng: data.lo, altitude: 1.2}, 2000);
+
   setTimeout(() => {
-    satMap.setView([data.la, data.lo], 12);
-    $("satellite-map").classList.add("active");
+    $("satellite-map").classList.add("active");          // fade in
     satMap.invalidateSize();
-    
+    satMap.setView([data.la, data.lo], 4, { animate:false });
+    satMap.flyTo([data.la, data.lo], 13, { duration: 2.6 });  // smooth zoom in
+
     L.marker([data.la, data.lo], {
-      icon: L.divIcon({ 
-        className: '', 
-        html: `<div style="width:40px;height:40px;border-radius:40% 60% 50% 50%;background:radial-gradient(circle at 30% 30%, #fff, #d7c5a3);box-shadow:inset -3px -4px 8px rgba(90,60,20,0.3), 0 6px 12px rgba(0,0,0,0.8); display:flex;align-items:center;justify-content:center;font-size:18px;">💌</div>`, 
-        iconSize: [40, 40] 
+      icon: L.divIcon({
+        className: '',
+        html: `<div style="width:40px;height:40px;border-radius:40% 60% 50% 50%;background:radial-gradient(circle at 30% 30%, #fff, #d7c5a3);box-shadow:inset -3px -4px 8px rgba(90,60,20,0.3), 0 6px 12px rgba(0,0,0,0.8); display:flex;align-items:center;justify-content:center;font-size:18px;">💌</div>`,
+        iconSize: [40, 40]
       })
     }).addTo(satMap);
+  }, 2200);
 
-    const n1 = Math.floor(Math.random() * 20) + 5;
-    const n2 = Math.floor(Math.random() * 20) + 5;
-    puzzleAnswer = n1 + n2;
-    
+  // Reveal the quiz once the map has finished zooming in.
+  setTimeout(() => {
     $("puz-sender").textContent = data.n;
-    $("puz-question").textContent = `${n1} + ${n2} = ?`;
+    loadQuizQuestion();
     $("puzzle-scrim").classList.add("show");
-  }, 3500);
+    SOUND.sfx.pop();
+  }, 5200);
 }
 
-function verifyPuzzle() {
-  const userAns = parseInt($("puz-answer").value);
-  if(userAns === puzzleAnswer) {
-    $("puzzle-scrim").classList.remove("show");
-    showResultPopup(receiverData.c, "India", distKm(origin.lat, origin.lng, receiverData.la, receiverData.lo), receiverData.w, true);
+/* --- QUIZ ENGINE: maths + India general knowledge (multiple choice) --- */
+const INDIA_GK = [
+  { q:"What is the capital of India?", o:["Mumbai","New Delhi","Kolkata","Chennai"], a:1 },
+  { q:"Which is the longest river in India?", o:["Yamuna","Godavari","Ganga","Narmada"], a:2 },
+  { q:"India's national animal is the?", o:["Lion","Tiger","Elephant","Leopard"], a:1 },
+  { q:"India's national bird is the?", o:["Parrot","Peacock","Eagle","Sparrow"], a:1 },
+  { q:"The national flower of India is the?", o:["Rose","Lotus","Marigold","Jasmine"], a:1 },
+  { q:"Who is called the 'Father of the Nation' in India?", o:["Nehru","Bhagat Singh","Mahatma Gandhi","Sardar Patel"], a:2 },
+  { q:"In which year did India gain independence?", o:["1942","1945","1947","1950"], a:2 },
+  { q:"The Taj Mahal is located in which city?", o:["Delhi","Jaipur","Agra","Lucknow"], a:2 },
+  { q:"Which is the largest Indian state by area?", o:["Maharashtra","Rajasthan","Madhya Pradesh","Uttar Pradesh"], a:1 },
+  { q:"The currency of India is the?", o:["Rupee","Taka","Rupiah","Dinar"], a:0 },
+  { q:"Which festival is the 'Festival of Lights'?", o:["Holi","Diwali","Onam","Eid"], a:1 },
+  { q:"Who wrote India's national anthem?", o:["Bankim Chandra","Rabindranath Tagore","Sarojini Naidu","Premchand"], a:1 },
+  { q:"Which mountain range lies to India's north?", o:["Aravalli","Himalayas","Western Ghats","Vindhyas"], a:1 },
+  { q:"Which city is known as the 'Pink City'?", o:["Jaipur","Udaipur","Jodhpur","Bikaner"], a:0 },
+  { q:"The holy river that flows through Varanasi is the?", o:["Kaveri","Ganga","Tapti","Beas"], a:1 },
+  { q:"Which is India's national fruit?", o:["Banana","Mango","Apple","Guava"], a:1 },
+  { q:"How many colours are on the Indian flag?", o:["2","3","4","5"], a:1 },
+  { q:"Which planet is the Indian mission 'Mangalyaan' sent to?", o:["Moon","Mars","Venus","Jupiter"], a:1 },
+  { q:"The Gateway of India is in which city?", o:["Delhi","Chennai","Mumbai","Kolkata"], a:2 },
+  { q:"Which is the smallest state in India by area?", o:["Goa","Sikkim","Tripura","Nagaland"], a:0 }
+];
+
+function makeMathQuestion(){
+  const a = Math.floor(Math.random()*12)+4, b = Math.floor(Math.random()*12)+4;
+  const useMul = Math.random() < 0.4;
+  const ans = useMul ? a*b : a+b;
+  const qtext = `${a} ${useMul ? "×" : "+"} ${b} = ?`;
+  const set = new Set([ans]);
+  while(set.size < 4){
+    const d = ans + (Math.floor(Math.random()*9) - 4) * (useMul ? Math.max(1, Math.round(a/2)) : 1);
+    if(d > 0 && d !== ans) set.add(d);
+  }
+  const opts = [...set];
+  for(let i=opts.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [opts[i],opts[j]]=[opts[j],opts[i]]; }
+  return { q: qtext, o: opts.map(String), a: opts.indexOf(ans) };
+}
+function getRandomQuestion(){
+  return Math.random() < 0.5 ? makeMathQuestion() : INDIA_GK[Math.floor(Math.random()*INDIA_GK.length)];
+}
+
+let currentQuestion = null;
+function loadQuizQuestion(){
+  currentQuestion = getRandomQuestion();
+  $("puz-question").textContent = currentQuestion.q;
+  const box = $("puz-options"); box.innerHTML = "";
+  currentQuestion.o.forEach((opt, idx) => {
+    const b = document.createElement("button");
+    b.className = "quiz-opt";
+    b.textContent = opt;
+    b.onclick = () => answerQuiz(idx, b);
+    box.appendChild(b);
+  });
+}
+function answerQuiz(idx, btn){
+  if(currentQuestion == null) return;
+  if(idx === currentQuestion.a){
+    currentQuestion = null;
+    SOUND.sfx.success();
+    btn.classList.add("correct");
+    [...$("puz-options").children].forEach(c => c.disabled = true);
+    setTimeout(() => {
+      $("puzzle-scrim").classList.remove("show");
+      showResultPopup(receiverData.c, "India", distKm(origin.lat, origin.lng, receiverData.la, receiverData.lo), receiverData.w, true);
+    }, 650);
   } else {
     SOUND.sfx.wrong();
+    btn.classList.add("wrong"); btn.disabled = true;
     puzzleChances--;
-    if(puzzleChances > 0) {
-      $("puz-chances").textContent = `Incorrect! Chances left: ${puzzleChances}`;
-      $("puz-answer").value = "";
+    if(puzzleChances > 0){
+      $("puz-chances").textContent = `Oops! Try again — chances left: ${puzzleChances}`;
+      setTimeout(loadQuizQuestion, 750);    // fresh question
     } else {
-      $("puzzle-box").innerHTML = `<h2 style="color:red;">🔒 LOCKED FOREVER</h2><p>You failed the security check.</p>`;
+      $("puzzle-box").innerHTML = `<h2 style="color:#a23b2b; margin-top:0;">🔒 Sealed Away</h2><p style="color:#6b4f2a;">The surprise stayed locked this time. Ask them to send it to you again! 💌</p>`;
     }
   }
 }
@@ -1501,7 +1576,7 @@ function closeResult() {
   $("satellite-map").classList.remove("active");
   $("globe").classList.remove("hidden");
   world.controls().autoRotate = true;
-  world.pointOfView({lat: origin.lat, lng: origin.lng, altitude: 2.2}, 1200);
+  world.pointOfView({lat: origin.lat, lng: origin.lng, altitude: OVERVIEW_ALT}, 1200);
 }
 
 function slingAnother() {
