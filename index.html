@@ -3,43 +3,68 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-<title>Paper Sling — crumple a wish, sling it across the world</title>
+<title>Paper Sling Send a Gamified Surprise</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;1,9..144,400&family=Courier+Prime:wght@400;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/@lottiefiles/lottie-player@2.0.8/dist/lottie-player.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js"></script>
 <style>
   :root{
-    --bg-0:#0b0a13;--bg-1:#12111f;--ink:#f3ead7;--ink-soft:#bdae8f;
-    --ember:#ffb15c;--ember-deep:#ff8a3d;--halo:#ffcf8a;
-    --line:rgba(255,200,140,.16);--card:rgba(18,16,28,.74);
-    --paper:#fdfbf7;--paper-line:#a6cbe8;--paper-margin:#ff8a8a;
-    --ink-stamp:#b6442f;--ink-stamp2:#2f5d8c;
+    --bg-0:#05040a; --bg-1:#120b22; --ink:#f3ead7; --ink-soft:#bdae8f;
+    --ember:#ffb15c; --ember-deep:#ff8a3d; --halo:#ffcf8a;
+    --line:rgba(255,200,140,.16); --card:rgba(18,16,28,.74);
+    --paper:#fdfbf7; --paper-line:#a6cbe8; --paper-margin:#ff8a8a;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{margin:0;height:100%;overflow:hidden;color:var(--ink);
-    font-family:"Inter",system-ui,sans-serif;
-    background:radial-gradient(125% 100% at 50% -8%,#1b1733 0%,var(--bg-1) 40%,var(--bg-0) 100%)}
-  canvas{display:block}
   
-  /* ---- Lottie-Style SVG Loader ---- */
-  .fancy-loader {
-    position: fixed; inset: 0; z-index: 50; background: var(--bg-0);
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    transition: opacity 0.8s ease, visibility 0.8s;
+  html,body{margin:0;height:100%;overflow:hidden;color:var(--ink); font-family:"Inter",sans-serif; background-color: var(--bg-0);}
+  
+  #spaceCanvas { position: fixed; inset: 0; z-index: -2; pointer-events: none; background: radial-gradient(circle at 50% 110%, #201040, var(--bg-0)); }
+  /* Shooting stars sit ABOVE the globe so they're never blocked by it. */
+  #shootCanvas { position: fixed; inset: 0; z-index: 3; pointer-events: none; background: transparent; }
+
+  .satellite { position: fixed; z-index: 2; pointer-events: none; filter: drop-shadow(0 6px 10px rgba(0,0,0,.6)) drop-shadow(0 0 6px rgba(255,207,138,.25)); }
+  .sat-svg { display:block; }
+  .satellite .sat-svg { animation: satTumble 16s ease-in-out infinite; }
+  .sat-1 { top: 15%; opacity: 0.92; animation: orbit1 38s linear infinite; }
+  .sat-1 .sat-svg { width: 92px; }
+  .sat-2 { top: 40%; opacity: 0.6; animation: orbit2 54s linear infinite reverse; }
+  .sat-2 .sat-svg { width: 58px; animation-duration: 22s; }
+  .sat-3 { top: 74%; opacity: 0.8; animation: orbit3 46s linear infinite; }
+  .sat-3 .sat-svg { width: 76px; animation-duration: 19s; }
+  @keyframes satTumble { 0%,100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
+
+  /* --- POSTAGE STAMP --- */
+  .stamp-slot{ position:absolute; top:8px; right:9px; width:60px; height:72px; z-index:6; cursor:pointer; opacity:0; transform:scale(.7) rotate(-6deg); pointer-events:none; transition:opacity .35s ease, transform .4s cubic-bezier(.2,.9,.3,1); }
+  .stamp-slot.show{ opacity:1; transform:scale(1) rotate(-6deg); pointer-events:auto; }
+  .stamp-slot .stamp-prompt{ position:absolute; inset:0; border:2px dashed #c2452f; border-radius:4px; display:flex; align-items:center; justify-content:center; text-align:center; font-family:"Inter",sans-serif; font-size:8px; font-weight:800; letter-spacing:.06em; color:#c2452f; text-transform:uppercase; line-height:1.4; padding:4px; background:rgba(255,138,138,0.08); animation:stampPulse 1.5s ease-in-out infinite; }
+  @keyframes stampPulse{ 0%,100%{ transform:scale(1); opacity:.85; } 50%{ transform:scale(1.07); opacity:1; } }
+  .stamp-slot.stamped .stamp-prompt{ display:none; }
+  .stamp-svg{ width:100%; height:100%; display:none; filter:drop-shadow(0 2px 3px rgba(0,0,0,.25)); }
+  .stamp-slot.stamped .stamp-svg{ display:block; animation:stampDrop .4s cubic-bezier(.2,.9,.3,1); }
+  @keyframes stampDrop{ 0%{ transform:scale(1.7) rotate(10deg); opacity:0; } 100%{ transform:scale(1) rotate(0); opacity:1; } }
+
+  /* --- PAPER LANDING SPLAT (squash on impact) --- */
+  .land-splat{ position:fixed; z-index:11; width:58px; height:58px; pointer-events:none; left:50%; top:50%; transform:translate(-50%,-50%); border-radius:48% 52% 46% 54% / 54% 46% 58% 42%;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg fill='none' stroke='rgba(90,70,40,0.22)' stroke-width='1.3'%3E%3Cpath d='M8 30 L34 22 L50 42 L72 28 L92 46'/%3E%3Cpath d='M14 64 L40 54 L58 72 L82 62'/%3E%3Cpath d='M50 6 L46 30 L60 52 L52 78 L58 96'/%3E%3C/g%3E%3C/svg%3E") center/cover, radial-gradient(circle at 38% 34%, #ffffff 0%, #efe7d6 42%, #d7c5a3 72%, #b59a6e 100%);
+    box-shadow:inset -5px -6px 12px rgba(90,60,20,.35), 0 10px 22px rgba(0,0,0,.5); }
+  @keyframes paperFlatten{
+    0%   { transform:translate(-50%,-160%) scale(0.9,1.05); opacity:1; }
+    45%  { transform:translate(-50%,-46%)  scale(1.4,0.45); border-radius:50%; }
+    65%  { transform:translate(-50%,-58%)  scale(0.82,1.18); }
+    100% { transform:translate(-50%,-48%)  scale(1.3,0.4);  border-radius:50%; opacity:0; }
   }
+  .land-splat.flatten{ animation:paperFlatten .72s cubic-bezier(.3,.7,.4,1) forwards; }
+
+  @keyframes orbit1 { 0% { left: -50px; transform: rotate(-20deg) translateY(0); } 50% { transform: rotate(-10deg) translateY(-20px); } 100% { left: 110vw; transform: rotate(10deg) translateY(0); } }
+  @keyframes orbit2 { 0% { left: -50px; transform: rotate(10deg) translateY(0); } 100% { left: 110vw; transform: rotate(-20deg) translateY(20px); } }
+  @keyframes orbit3 { 0% { left: -50px; transform: rotate(-5deg); } 100% { left: 110vw; transform: rotate(5deg); } }
+
+  .fancy-loader { position: fixed; inset: 0; z-index: 50; background: var(--bg-0); display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.8s ease, visibility 0.8s; }
   .fancy-loader.hide { opacity: 0; visibility: hidden; pointer-events: none; }
   .plane-svg { width: 100px; height: 100px; overflow: visible; animation: floatPlane 3s ease-in-out infinite; }
-  .plane-path {
-    stroke: var(--ember); stroke-width: 3; fill: rgba(255,177,92,0.1);
-    stroke-linecap: round; stroke-linejoin: round;
-    stroke-dasharray: 400; stroke-dashoffset: 400;
-    animation: drawPlane 2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-  }
-  .loader-anim { position: relative; width: 170px; height: 170px; display:flex; align-items:center; justify-content:center; }
-  .loader-anim .plane-svg { position:absolute; }
-  .loader-lottie { position:absolute; inset:0; width:170px; height:170px; }
+  .plane-path { stroke: var(--ember); stroke-width: 3; fill: rgba(255,177,92,0.1); stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 400; stroke-dashoffset: 400; animation: drawPlane 2s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
   .loader-text { margin-top: 24px; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-soft); animation: pulseText 2s infinite; }
   @keyframes drawPlane { to { stroke-dashoffset: 0; } }
   @keyframes floatPlane { 0%, 100% { transform: translateY(0) rotate(-5deg); } 50% { transform: translateY(-15px) rotate(5deg); } }
@@ -47,82 +72,39 @@
 
   #globe {position:fixed;inset:0;z-index:1; transition: opacity 1.5s ease;}
   #globe.hidden { opacity: 0; pointer-events: none; }
-  
-  #satellite-map {
-    position: fixed; inset: 0; z-index: 5; opacity: 0; 
-    pointer-events: none; transition: opacity 0.8s ease;
-  }
+  #satellite-map { position: fixed; inset: 0; z-index: 5; opacity: 0; pointer-events: none; transition: opacity 0.8s ease; }
   #satellite-map.active { opacity: 1; pointer-events: auto; }
   
-  /* ---- top bar ---- */
-  .topbar{position:fixed;top:0;left:0;right:0;z-index:8;display:flex;justify-content:space-between;
-    align-items:flex-start;padding:16px 18px;pointer-events:none}
-  .brand{pointer-events:auto}
-  .brand h1{margin:0;font-family:"Fraunces",serif;font-weight:500;font-size:20px;letter-spacing:.2px}
+  .topbar{position:fixed;top:0;left:0;right:0;z-index:8;display:flex;justify-content:space-between; align-items:flex-start;padding:16px 18px;pointer-events:none}
+  .brand h1{margin:0;font-family:"Fraunces",serif;font-weight:500;font-size:20px;letter-spacing:.2px; pointer-events:auto;}
   .brand p{margin:2px 0 0;font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);opacity:.7}
-  .chip{pointer-events:auto;background:var(--card);border:.5px solid var(--line);border-radius:13px;
-    padding:7px 13px;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);text-align:center;min-width:80px}
-  .chip .k{font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);opacity:.75}
-  .chip .v{font-family:"Fraunces",serif;font-size:17px;margin-top:1px}
-
-  .sound{position:fixed;right:18px;top:60px;z-index:8;width:36px;height:36px;border-radius:50%;
-    background:var(--card);border:.5px solid var(--line);color:var(--ink-soft);cursor:pointer;
-    display:flex;align-items:center;justify-content:center;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
-  .sound svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
-  .sound.on{color:var(--ember);border-color:rgba(255,177,92,.5)}
-
-  /* ---- Center Studio (Writing Phase) ---- */
-  .dock{position:fixed; z-index:8; display:flex;flex-direction:column; align-items:center; width:min(92vw,440px);
-    left:50%; top:50%; transform:translate(-50%, -50%) scale(0.9); opacity: 0; pointer-events:none; transition: all 0.6s cubic-bezier(0.2, 0.9, 0.3, 1);}
+  
+  .dock{position:fixed; z-index:8; display:flex;flex-direction:column; align-items:center; width:min(92vw,440px); left:50%; top:50%; transform:translate(-50%, -50%) scale(0.9); opacity: 0; pointer-events:none; transition: all 0.6s cubic-bezier(0.2, 0.9, 0.3, 1);}
   .dock.active { transform:translate(-50%, -50%) scale(1); opacity: 1; pointer-events:auto; }
   .dock.hidden { opacity: 0; transform:translate(-50%, -40%) scale(0.9); pointer-events: none; }
-  
-  .studio{position:relative;width:100%;background:var(--card);border:.5px solid var(--line);
-    border-radius:22px;padding:24px;-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
-    box-shadow:0 30px 80px rgba(0,0,0,.8);}
-
-  /* close the paper view to explore the globe */
-  .studio-close{position:absolute;top:12px;right:12px;width:30px;height:30px;border-radius:50%;
-    border:.5px solid var(--line);background:rgba(255,255,255,.06);color:var(--ink-soft);
-    display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:5;transition:background .2s,color .2s}
-  .studio-close:hover{background:rgba(255,255,255,.13);color:var(--ink)}
-  .studio-close svg{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round}
-
-  /* floating button to come back and write a new wish */
-  .write-fab{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);z-index:9;
-    display:none;align-items:center;gap:8px;padding:13px 22px;border-radius:30px;border:none;cursor:pointer;
-    font:inherit;font-weight:600;font-size:15px;color:#2a1606;
-    background:linear-gradient(180deg,var(--halo),var(--ember-deep));box-shadow:0 10px 30px rgba(255,138,61,.4);
-    opacity:0;transition:opacity .4s, transform .4s}
-  .write-fab.show{display:flex;opacity:1;transform:translateX(-50%) translateY(0)}
-  .write-fab svg{width:18px;height:18px;stroke:#2a1606;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .studio{position:relative;width:100%;background:var(--card);border:.5px solid var(--line); border-radius:22px;padding:24px;-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px); box-shadow:0 30px 80px rgba(0,0,0,.8);}
+  .studio-close{ position:absolute; top:11px; right:11px; width:30px; height:30px; border-radius:50%; border:.5px solid var(--line); background:rgba(255,255,255,.07); color:var(--ink); font-size:14px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; z-index:9; transition:background .2s, transform .1s; }
+  .studio-close:hover{ background:rgba(255,255,255,.15); }
+  .studio-close:active{ transform:scale(.9); }
+  .open-paper-btn{ position:fixed; left:50%; bottom:30px; transform:translateX(-50%) translateY(20px); z-index:9; opacity:0; pointer-events:none; cursor:pointer; border:none; border-radius:999px; padding:13px 24px; font:inherit; font-weight:700; font-size:14px; color:#2a1606; background:linear-gradient(180deg,var(--halo),var(--ember-deep)); box-shadow:0 12px 30px rgba(0,0,0,.5); display:flex; align-items:center; gap:8px; transition:opacity .35s, transform .35s; }
+  .open-paper-btn.show{ opacity:1; pointer-events:auto; transform:translateX(-50%) translateY(0); }
   
   .from{font-size:13px;color:var(--ink-soft);text-align:center;margin:0 0 16px;min-height:14px; letter-spacing: 0.05em;}
   .from b{color:var(--ember);font-weight:500}
 
   .stage{position:relative;height:296px;display:flex;align-items:center;justify-content:center;margin-bottom:8px}
-
-  .sheet{position:relative;width:330px;height:286px;
-    background:
-      linear-gradient(180deg, rgba(255,255,255,.45) 0, rgba(0,0,0,.04) 100%),
-      repeating-linear-gradient(var(--paper) 0, var(--paper) 30px, var(--paper-line) 30px, var(--paper-line) 31px);
-    border-radius:4px;box-shadow:0 14px 34px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.7);
-    transform:rotate(-2deg);transform-origin:center center;
-    transition:transform .45s cubic-bezier(.2,.9,.3,1), opacity .4s;
-    overflow:hidden; z-index:3;}
+  .sheet{position:relative;width:330px;height:286px; background: linear-gradient(180deg, rgba(255,255,255,.45) 0, rgba(0,0,0,.04) 100%), repeating-linear-gradient(var(--paper) 0, var(--paper) 30px, var(--paper-line) 30px, var(--paper-line) 31px); border-radius:4px;box-shadow:0 14px 34px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.7); transform:rotate(-2deg);transform-origin:center center; transition:transform .45s cubic-bezier(.2,.9,.3,1), opacity .4s; overflow:hidden; z-index:3;}
   .sheet::before{content:"";position:absolute;left:38px;top:0;bottom:0;width:2px;background:var(--paper-margin);opacity:.55}
-  .sheet textarea{position:absolute;left:0;right:0;top:0;bottom:14px;border:none;background:transparent;resize:none;
-    outline:none;font-family:"Caveat",cursive;font-size:30px;line-height:31px;color:#1c1b34;
-    padding:28px 16px 10px 50px;transition:opacity .3s;}
+  
+  .sheet-header { position: absolute; top: 10px; left: 45px; right: 78px; z-index: 5; transition: opacity .3s; }
+  .sheet-header input { width: 100%; background: transparent; border: none; outline: none; border-bottom: 1px dashed rgba(0,0,0,0.2); margin-bottom: 6px; color: #1c1b34; }
+  .sheet-header input::placeholder { color: #b6a684; }
+  #senderName { font-family: "Caveat", cursive; font-size: 22px; }
+  #receiverPhone { font-family: "Courier Prime", monospace; font-size: 13px; letter-spacing: 1px; }
+  #form-error { color: #d63031; font-size: 10px; font-weight: bold; min-height: 14px; font-family: "Inter", sans-serif; letter-spacing: 0.5px;}
+
+  .sheet textarea{position:absolute;left:0;right:0;top:80px;bottom:14px;border:none;background:transparent;resize:none; outline:none;font-family:"Caveat",cursive;font-size:26px;line-height:30px;color:#1c1b34; padding:0px 16px 10px 50px;transition:opacity .3s;}
   .sheet textarea::placeholder{color:#b6a684}
-
-  /* postage stamp printed onto the paper's corner (replaces the old stamp box) */
-  .paper-stamp{position:absolute;right:12px;bottom:10px;width:72px;height:72px;z-index:2;
-    opacity:0;pointer-events:none;filter:drop-shadow(0 2px 3px rgba(0,0,0,.25))}
-  .paper-stamp.show{opacity:1}
-
-  .status-tag{position:absolute;top:5px;right:8px;font-family:"Courier Prime",monospace;font-size:10px;
-    letter-spacing:.1em;color:#9b8a68;text-transform:uppercase;transition:opacity .3s;z-index:2}
 
   @keyframes crumpleSquash{
     0%  {transform:rotate(-2deg)  scale(1);   border-radius:4px}
@@ -136,54 +118,30 @@
     background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg fill='none' stroke='rgba(90,70,40,0.22)' stroke-width='1.3'%3E%3Cpath d='M8 30 L34 22 L50 42 L72 28 L92 46'/%3E%3Cpath d='M14 64 L40 54 L58 72 L82 62'/%3E%3Cpath d='M50 6 L46 30 L60 52 L52 78 L58 96'/%3E%3Cpath d='M24 10 L30 40 L18 70 L30 92'/%3E%3Cpath d='M78 12 L70 38 L84 64 L74 90'/%3E%3C/g%3E%3C/svg%3E") center/cover, radial-gradient(circle at 38% 34%, #ffffff 0%, #efe7d6 42%, #d7c5a3 72%, #b59a6e 100%) !important;
     box-shadow: inset -8px -10px 18px rgba(90,60,20,.35), inset 8px 8px 14px rgba(255,255,255,.45), 0 18px 34px rgba(0,0,0,.6) !important;
   }
-  .sheet.crumpled::before{display:none}
+  .sheet.crumpled::before {display:none}
 
-  /* ---- Gamified Slingshot View (Bottom Center) ---- */
-  .slingshot-view {position:fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(40px); 
-    opacity: 0; pointer-events:none; display:flex; align-items:center; justify-content:center; z-index:7; width: 200px; height: 200px; transition: all 0.5s ease-out;}
+  .slingshot-view {position:fixed; bottom: 80px; left: 50%; transform: translateX(-50%) translateY(40px); opacity: 0; pointer-events:none; display:flex; align-items:center; justify-content:center; z-index:7; width: 200px; height: 200px; transition: all 0.5s ease-out;}
   .slingshot-view.active { opacity: 1; pointer-events:auto; transform: translateX(-50%) translateY(0); }
-  
   .sling-svg {width:240px; height:240px; filter:drop-shadow(0 20px 25px rgba(0,0,0,.8)); position:absolute; top:0; left:-20px;}
-  
   .aim-hud { position: absolute; top: -120px; left: 50%; transform: translateX(-50%); width: 300px; height: 300px; pointer-events: none; opacity: 0; transition: opacity 0.2s;}
   .aim-hud.show { opacity: 1; }
   
   .pouch-ball {
-    position:absolute; width:52px; height:52px; cursor: grab;
-    border-radius:48% 52% 46% 54% / 54% 46% 58% 42%;
+    position:absolute; width:52px; height:52px; cursor: grab; border-radius:48% 52% 46% 54% / 54% 46% 58% 42%;
     background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg fill='none' stroke='rgba(90,70,40,0.22)' stroke-width='1.3'%3E%3Cpath d='M8 30 L34 22 L50 42 L72 28 L92 46'/%3E%3Cpath d='M14 64 L40 54 L58 72 L82 62'/%3E%3Cpath d='M50 6 L46 30 L60 52 L52 78 L58 96'/%3E%3Cpath d='M24 10 L30 40 L18 70 L30 92'/%3E%3Cpath d='M78 12 L70 38 L84 64 L74 90'/%3E%3C/g%3E%3C/svg%3E") center/cover, radial-gradient(circle at 38% 34%, #ffffff 0%, #efe7d6 42%, #d7c5a3 72%, #b59a6e 100%);
     box-shadow:inset -5px -6px 12px rgba(90,60,20,.35), inset 5px 5px 10px rgba(255,255,255,.5), 0 8px 16px rgba(0,0,0,.6);
-    top:50%; left:50%; transform:translate(-50%, calc(-50% - 20px));
-    z-index:4; touch-action: none;
+    top:50%; left:50%; transform:translate(-50%, calc(-50% - 20px)); z-index:4; touch-action: none;
   }
   .pouch-ball:active { cursor: grabbing; }
 
-  .flying-ball {
-    position:fixed; width:52px; height:52px; z-index:12; pointer-events:none;
-    border-radius:48% 52% 46% 54% / 54% 46% 58% 42%;
-    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cg fill='none' stroke='rgba(90,70,40,0.22)' stroke-width='1.3'%3E%3Cpath d='M8 30 L34 22 L50 42 L72 28 L92 46'/%3E%3Cpath d='M14 64 L40 54 L58 72 L82 62'/%3E%3Cpath d='M50 6 L46 30 L60 52 L52 78 L58 96'/%3E%3Cpath d='M24 10 L30 40 L18 70 L30 92'/%3E%3Cpath d='M78 12 L70 38 L84 64 L74 90'/%3E%3C/g%3E%3C/svg%3E") center/cover, radial-gradient(circle at 38% 34%, #ffffff 0%, #efe7d6 42%, #d7c5a3 72%, #b59a6e 100%);
-    box-shadow:inset -5px -6px 12px rgba(90,60,20,.35), 0 10px 22px rgba(0,0,0,.6);
-  }
-
-  .meteor-ball {
-    position:fixed; z-index:12; width:40px; height:40px; pointer-events:none;
-    left:50%; transform:translateX(-50%); border-radius:50%;
-    background: radial-gradient(circle at 30% 30%, #fff, #ffcf8a, #ff3d00);
-    box-shadow: 0 0 40px #ff3d00, 0 10px 60px #ff8a3d, inset 0 0 10px #ff9100;
-  }
-  .meteor-ball::after {
-    content: ''; position: absolute; top: -100px; left: 2px; right: 2px; bottom: 15px;
-    background: linear-gradient(to top, rgba(255,60,0,0.9), transparent);
-    border-radius: 50%; filter: blur(6px); z-index: -1;
-  }
+  .flying-ball { position:fixed; width:52px; height:52px; z-index:12; pointer-events:none; border-radius:48% 52% 46% 54% / 54% 46% 58% 42%; background: radial-gradient(circle at 38% 34%, #ffffff 0%, #efe7d6 42%, #d7c5a3 72%, #b59a6e 100%); box-shadow:inset -5px -6px 12px rgba(90,60,20,.35), 0 10px 22px rgba(0,0,0,.6); }
+  .meteor-ball { position:fixed; z-index:12; width:40px; height:40px; pointer-events:none; left:50%; transform:translateX(-50%); border-radius:50%; background: radial-gradient(circle at 30% 30%, #fff, #ffcf8a, #ff3d00); box-shadow: 0 0 40px #ff3d00, 0 10px 60px #ff8a3d, inset 0 0 10px #ff9100; }
+  .meteor-ball::after { content: ''; position: absolute; top: -100px; left: 2px; right: 2px; bottom: 15px; background: linear-gradient(to top, rgba(255,60,0,0.9), transparent); border-radius: 50%; filter: blur(6px); z-index: -1; }
 
   @keyframes impactShake { 0%, 100% { transform: translate(0,0); } 20% { transform: translate(-12px, 12px) rotate(-1deg); } 40% { transform: translate(12px, -12px) rotate(1deg); } 60% { transform: translate(-12px, -6px); } 80% { transform: translate(12px, 6px); } }
-  .impact-flash { position: fixed; inset: 0; z-index: 11; background: radial-gradient(circle at 50% 50%, #fff, #ff8a3d, transparent); opacity: 0; pointer-events: none; }
 
   .actionbar{display:flex;gap:9px;margin-top:6px; height:50px;}
-  .btn{flex:1;border:none;border-radius:13px;padding:13px;font:inherit;font-weight:500;font-size:15px;
-    cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;
-    background:rgba(255,255,255,.06);border:.5px solid var(--line);color:var(--ink);transition:background .2s,transform .08s}
+  .btn{flex:1;border:none;border-radius:13px;padding:13px;font:inherit;font-weight:600;font-size:15px; cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px; background:rgba(255,255,255,.06);border:.5px solid var(--line);color:var(--ink);transition:background .2s,transform .08s}
   .btn:hover{background:rgba(255,255,255,.11)}
   .btn:active{transform:scale(.985)}
   .btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
@@ -194,108 +152,181 @@
   .sling-hint.show { opacity: 1; animation: floatText 2s ease-in-out infinite; }
   @keyframes floatText { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
 
-  .passport{position:fixed;left:0;right:0;bottom:0;z-index:4;display:flex;gap:10px;padding:10px 14px 124px; overflow-x:auto;pointer-events:none;-ms-overflow-style:none;scrollbar-width:none}
-  .passport::-webkit-scrollbar{display:none}
-
-  /* ---- result card ---- */
-  .scrim{position:fixed;inset:0;z-index:15;background:rgba(5,4,10,.66);-webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;padding:20px}
+  .scrim{position:fixed;inset:0;z-index:15;background:rgba(5,4,10,.8);-webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);display:none;align-items:center;justify-content:center;padding:20px}
   .scrim.show{display:flex}
-  .resultwrap{width:100%;max-width:330px}
-  .result{border-radius:22px;overflow:hidden;border:.5px solid var(--line); background:linear-gradient(180deg,#171326,#0d0b16);box-shadow:0 30px 80px rgba(0,0,0,.6); transform:translateY(14px) scale(.97);opacity:0;transition:.4s cubic-bezier(.2,.9,.3,1)}
-  .scrim.show .result{transform:none;opacity:1}
-  .rcard{padding:24px 22px 20px;position:relative}
-  .rtier{font-size:10.5px;letter-spacing:.26em;text-transform:uppercase;text-align:center;margin:0; display:flex;align-items:center;justify-content:center;gap:5px}
-  .rdist{font-family:"Fraunces",serif;font-size:50px;text-align:center;line-height:1;margin:7px 0 2px}
-  .rdist small{font-size:17px;color:var(--ink-soft)}
-  .rroute{text-align:center;font-size:12.5px;color:var(--ink-soft);margin:5px 0 16px; display:flex;align-items:center;justify-content:center;gap:4px}
-  .rroute b{color:var(--ember);font-weight:500}
-  .stampseat{display:flex;justify-content:center;margin:4px 0 16px}
-  .rwish{font-family:"Caveat",cursive;font-size:26px;text-align:center;line-height:1.3; border-top:.5px solid var(--line);padding:18px 4px 0;margin:0; color:#fdfbf7;}
-  .rmeta{display:flex;justify-content:space-around;margin-top:16px}
-  .rmeta .k{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);opacity:.7}
-  .rmeta .v{font-family:"Fraunces",serif;font-size:19px;margin-top:2px}
-  .rnote{font-family:"Fraunces",serif;font-style:italic;font-size:14.5px;line-height:1.55;text-align:center;
-    color:var(--halo);margin:16px 2px 2px;padding-top:15px;border-top:.5px solid var(--line)}
-  .rnote b{color:var(--ember);font-style:normal;font-weight:500}
-  .ractions{display:flex;gap:9px;margin-top:12px}
-  .ractions button{flex:1;border-radius:13px;padding:12px;font:inherit;font-size:13px;font-weight:500;cursor:pointer; border:.5px solid var(--line);background:rgba(255,255,255,.05);color:var(--ink)}
-  .ractions button.primary{background:linear-gradient(180deg,var(--halo),var(--ember-deep));color:#2a1606;border:none}
+  .resultwrap{width:100%;max-width:340px}
+  /* --- VINTAGE AGED-PAPER RESULT CARD --- */
+  .result{ position:relative; border-radius:6px; overflow:hidden; border:none;
+    background:
+      radial-gradient(circle at 30% 16%, #ecd9ac, transparent 62%),
+      linear-gradient(135deg, #d8bf90, #c1a36f);
+    padding:8px; box-shadow:0 30px 80px rgba(0,0,0,.7), inset 0 0 0 1px rgba(120,90,40,.4);
+    transform:translateY(14px) scale(.97); opacity:0; transition:.45s cubic-bezier(.2,.9,.3,1); }
+  .scrim.show .result{ transform:none; opacity:1; }
+  .rcard{ position:relative; padding:24px 22px 20px; color:#3a2a16; border-radius:3px;
+    background:
+      radial-gradient(circle at 28% 10%, rgba(255,255,255,.55), transparent 55%),
+      radial-gradient(ellipse at 50% 120%, rgba(120,85,35,.22), transparent 70%),
+      repeating-linear-gradient(0deg, transparent 0 25px, rgba(120,90,40,.045) 25px 26px),
+      #f4e8c8;
+    box-shadow: inset 0 0 60px rgba(150,110,50,.3); }
+  .rcard::after{ content:""; position:absolute; inset:6px; border:1px dashed rgba(120,90,40,.45); border-radius:3px; pointer-events:none; }
+  .rc-airmail{ font-family:"Courier Prime",monospace; font-size:9px; letter-spacing:.26em; color:#a23b2b; text-align:center; opacity:.85; margin:0 0 6px; }
+  .postmark{ position:absolute; top:13px; right:15px; width:60px; height:60px; border-radius:50%; border:2px solid rgba(162,59,43,.5); color:rgba(162,59,43,.72); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; transform:rotate(-13deg); font-family:"Courier Prime",monospace; line-height:1.05; box-shadow:inset 0 0 0 1px rgba(162,59,43,.28); }
+  .postmark span{ font-size:8.5px; font-weight:700; letter-spacing:.03em; max-width:52px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .postmark i{ font-size:7px; font-style:normal; letter-spacing:.1em; margin-top:2px; opacity:.85; }
+  .rtier{ font-family:"Courier Prime",monospace; font-size:10px; letter-spacing:.3em; text-transform:uppercase; text-align:center; margin:0; display:flex; align-items:center; justify-content:center; gap:5px; color:#a23b2b; }
+  .rdist{ font-family:"Fraunces",serif; font-weight:500; font-size:52px; text-align:center; line-height:1; margin:8px 0 2px; color:#2a1c0c; text-shadow:0 1px 0 rgba(255,255,255,.5); }
+  .rdist small{ font-size:17px; color:#7a5a2c; font-family:"Courier Prime",monospace; }
+  .rroute{ text-align:center; font-size:12px; color:#6b4f2a; margin:4px 0 14px; display:flex; align-items:center; justify-content:center; gap:5px; font-family:"Courier Prime",monospace; }
+  .rroute b{ color:#3a2a16; font-weight:700; }
+  .rwish{ font-family:"Caveat",cursive; font-size:27px; text-align:center; line-height:1.3; border-top:1px dashed rgba(120,90,40,.45); padding:16px 4px 2px; margin:0; color:#43301a; }
+  .rquote{ font-family:"Fraunces",serif; font-style:italic; font-size:13.5px; line-height:1.55; text-align:center; color:#7a5a2c; margin:13px 6px 0; }
 
-  .toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);z-index:20;background:var(--card); border:.5px solid var(--line);border-radius:11px;padding:9px 15px;font-size:12.5px;opacity:0; transition:opacity .3s;-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
-  .toast.show{opacity:1}
+  .ractions{display:flex; flex-direction: column; gap:9px; margin-top:16px}
+  .ractions button{width: 100%; border-radius:13px; padding:14px; font:inherit; font-size:14px; font-weight:600; cursor:pointer; border:.5px solid var(--line);background:rgba(255,255,255,.05);color:var(--ink)}
+  .ractions .row { display: flex; gap: 8px; }
+  .btn-whatsapp { background: #25D366 !important; color: white !important; border: none !important; box-shadow: 0 4px 15px rgba(37, 211, 102, 0.4); display: flex; align-items: center; justify-content: center; gap: 8px;}
+  .btn-whatsapp svg { width: 18px; height: 18px; fill: white; }
 
-  /* ---- Strength meter (gamified power) ---- */
-  .strength-meter{position:fixed; right:20px; bottom:104px; z-index:8; display:flex; flex-direction:column;
-    align-items:center; gap:7px; opacity:0; transform:translateY(12px); pointer-events:none;
-    transition:opacity .3s, transform .3s;}
+  .strength-meter{position:fixed; right:20px; bottom:104px; z-index:8; display:flex; flex-direction:column; align-items:center; gap:7px; opacity:0; transform:translateY(12px); pointer-events:none; transition:opacity .3s, transform .3s;}
   .strength-meter.active{opacity:1; transform:translateY(0)}
-  .sm-track{position:relative; width:20px; height:160px; border-radius:11px; background:rgba(0,0,0,.55);
-    border:1px solid var(--line); overflow:hidden; box-shadow:inset 0 2px 6px rgba(0,0,0,.6)}
-  .sm-sweet{position:absolute; left:0; right:0; bottom:65%; height:20%;
-    background:rgba(90,208,122,.25); border-top:1.5px solid #5ad07a; border-bottom:1.5px solid #5ad07a}
-  .sm-fill{position:absolute; left:0; right:0; bottom:0; height:0%;
-    background:linear-gradient(0deg,var(--ember-deep),var(--halo)); border-radius:0 0 11px 11px}
+  .sm-track{position:relative; width:20px; height:160px; border-radius:11px; background:rgba(0,0,0,.55); border:1px solid var(--line); overflow:hidden; box-shadow:inset 0 2px 6px rgba(0,0,0,.6)}
+  .sm-sweet{position:absolute; left:0; right:0; bottom:65%; height:20%; background:rgba(90,208,122,.25); border-top:1.5px solid #5ad07a; border-bottom:1.5px solid #5ad07a}
+  .sm-fill{position:absolute; left:0; right:0; bottom:0; height:0%; background:linear-gradient(0deg,var(--ember-deep),var(--halo)); border-radius:0 0 11px 11px}
   .sm-fill.in-sweet{background:linear-gradient(0deg,#2f8c5d,#7be6a6)}
   .sm-label{font-size:8.5px;letter-spacing:.12em;color:var(--halo);text-transform:uppercase;font-weight:700}
-  .sm-wind{font-size:8px;letter-spacing:.05em;color:var(--ink-soft);text-transform:uppercase}
-
-  /* ---- Mascot + comic speech bubble ---- */
-  .mascot{position:fixed; left:16px; bottom:16px; z-index:9; display:flex; align-items:flex-end; gap:9px;
-    pointer-events:none; max-width:min(86vw,330px)}
-  .mascot .avatar{position:relative; width:74px; height:74px; flex:0 0 auto;
-    animation:mascotBob 3s ease-in-out infinite}
-  .mascot .avatar-emoji{position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-    font-size:46px; filter:drop-shadow(0 6px 10px rgba(0,0,0,.6))}
-  .mascot lottie-player{position:absolute; inset:0; width:74px; height:74px}
+  
+  .mascot{position:fixed; left:16px; bottom:16px; z-index:9; display:flex; align-items:flex-end; gap:9px; pointer-events:none; max-width:min(86vw,330px)}
+  .mascot .avatar{position:relative; width:74px; height:74px; flex:0 0 auto; animation:mascotBob 3s ease-in-out infinite}
+  .mascot .avatar-emoji{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:46px; filter:drop-shadow(0 6px 10px rgba(0,0,0,.6))}
   @keyframes mascotBob{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-9px) rotate(3deg)}}
-  .bubble{position:relative; background:#fffef8; color:#241f33; border:2px solid #241f33; border-radius:15px;
-    padding:9px 13px; font-family:"Caveat",cursive; font-size:21px; line-height:1.12;
-    box-shadow:0 12px 28px rgba(0,0,0,.55); opacity:0; transform:translateY(8px) scale(.95);
-    transition:opacity .28s, transform .28s; transform-origin:left bottom}
+  .bubble{position:relative; background:#fffef8; color:#241f33; border:2px solid #241f33; border-radius:15px; padding:9px 13px; font-family:"Caveat",cursive; font-size:21px; line-height:1.12; box-shadow:0 12px 28px rgba(0,0,0,.55); opacity:0; transform:translateY(8px) scale(.95); transition:opacity .28s, transform .28s; transform-origin:left bottom}
   .bubble.show{opacity:1; transform:translateY(0) scale(1)}
   .bubble::after{content:""; position:absolute; left:-11px; bottom:13px; border:8px solid transparent; border-right-color:#241f33}
   .bubble::before{content:""; position:absolute; left:-7px; bottom:15px; border:6px solid transparent; border-right-color:#fffef8; z-index:1}
 
-  /* ---- Globe message pins (clickable) ---- */
-  .globe-pin{position:relative;width:0;height:0;cursor:pointer;pointer-events:auto;}
-  .globe-pin .dot{position:absolute;left:-6px;top:-6px;width:12px;height:12px;border-radius:50%;
-    background:radial-gradient(circle at 35% 30%,#fff,var(--halo) 45%,var(--ember-deep));
-    box-shadow:0 0 8px var(--ember),0 0 16px var(--ember-deep);}
-  .globe-pin .ring{position:absolute;left:-11px;top:-11px;width:22px;height:22px;border-radius:50%;
-    border:1.5px solid var(--halo);opacity:.8;animation:pinPulse 2.2s ease-out infinite;}
-  .globe-pin .tag{position:absolute;left:-9px;top:-30px;font-size:15px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.6));
-    transition:transform .15s;}
-  .globe-pin:hover .tag{transform:scale(1.35) translateY(-2px);}
-  @keyframes pinPulse{0%{transform:scale(.4);opacity:.85}100%{transform:scale(2.6);opacity:0}}
+  #puzzle-scrim { z-index: 100; }
+  .puzzle-box { position:relative; text-align: center; padding: 32px 24px; color:#3a2a16; border-radius:3px;
+    background:
+      radial-gradient(circle at 28% 8%, rgba(255,255,255,.55), transparent 55%),
+      radial-gradient(ellipse at 50% 120%, rgba(120,85,35,.2), transparent 70%),
+      repeating-linear-gradient(0deg, transparent 0 25px, rgba(120,90,40,.045) 25px 26px),
+      #f4e8c8;
+    box-shadow: inset 0 0 60px rgba(150,110,50,.3); }
+  .puzzle-box::after{ content:""; position:absolute; inset:7px; border:1px dashed rgba(120,90,40,.45); border-radius:3px; pointer-events:none; }
+  .puzzle-box h2 { font-family: "Fraunces", serif; color:#a23b2b; margin-top: 0;}
+  .puzzle-box p { font-size: 15px; color:#6b4f2a; line-height: 1.5; margin-bottom: 20px;}
+  .puzzle-box p b { color:#2a1c0c; }
+  .puzzle-quote { font-family:"Fraunces",serif; font-style:italic; font-size:13.5px; color:#7a5a2c; line-height:1.55; margin: -6px 4px 22px; }
+  .math-q { font-size: 28px; font-family: "Courier Prime", monospace; color:#2a1c0c; margin-bottom: 15px; letter-spacing: 2px;}
+  .puzzle-box input { width: 120px; padding: 12px; font-size: 20px; text-align: center; border-radius: 8px; border: 1px solid rgba(120,90,40,.5); background: rgba(255,255,255,0.5); color:#2a1c0c; outline: none; margin-bottom: 15px;}
+  .puzzle-chances { font-size: 13px; color:#a23b2b; margin-bottom: 20px; font-weight: bold;}
 
-  /* ---- Leaflet paper marker ---- */
-  .map-pin{font-size:30px;line-height:1;filter:drop-shadow(0 4px 6px rgba(0,0,0,.7));animation:mascotBob 2.4s ease-in-out infinite;}
+  /* --- TOP ACTIONS: live counter + leaderboard --- */
+  .top-actions{ display:flex; flex-direction:column; align-items:flex-end; gap:8px; pointer-events:none; }
+  .counter-chip{ pointer-events:auto; display:flex; align-items:center; gap:5px; background:var(--card); border:.5px solid var(--line); border-radius:999px; padding:6px 12px; font-size:12px; color:var(--ink-soft); -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px); box-shadow:0 6px 18px rgba(0,0,0,.4); }
+  .counter-chip .cc-emoji{ font-size:13px; }
+  .counter-chip b{ color:var(--ember); font-size:13px; font-weight:700; letter-spacing:.02em; }
+  .counter-chip .cc-label{ font-size:10px; letter-spacing:.12em; text-transform:uppercase; opacity:.8; }
+  .lb-btn{ pointer-events:auto; cursor:pointer; border:.5px solid var(--line); background:var(--card); color:var(--ink); border-radius:999px; padding:7px 13px; font:inherit; font-size:12px; font-weight:600; letter-spacing:.03em; -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px); box-shadow:0 6px 18px rgba(0,0,0,.4); transition:transform .15s, background .2s; }
+  .lb-btn:hover{ background:rgba(255,255,255,.12); }
+  .lb-btn:active{ transform:scale(.94); }
 
-  /* ---- Back-to-globe button (map browsing) ---- */
-  .map-back{position:fixed;top:16px;left:16px;z-index:16;display:none;align-items:center;gap:7px;
-    background:var(--card);border:.5px solid var(--line);color:var(--ink);border-radius:13px;
-    padding:9px 14px;font:inherit;font-size:13px;cursor:pointer;
-    -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
-  .map-back.show{display:flex}
-  .map-back svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  /* --- LEADERBOARD LIST (on aged parchment) --- */
+  #lb-list{ display:flex; flex-direction:column; gap:7px; max-height:46vh; overflow-y:auto; margin-bottom:4px; }
+  .lb-row{ display:flex; align-items:center; gap:11px; padding:10px 12px; border-radius:10px; background:rgba(120,90,40,.09); border:1px solid rgba(120,90,40,.3); }
+  .lb-pos{ font-size:18px; width:26px; text-align:center; flex:0 0 auto; }
+  .lb-rank{ font-family:"Fraunces",serif; font-size:15px; color:#7a5a2c; }
+  .lb-name{ flex:1; font-size:14px; font-weight:700; color:#2a1c0c; display:flex; flex-direction:column; line-height:1.25; min-width:0; }
+  .lb-name small{ font-size:11px; font-weight:400; color:#7a5a2c; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .lb-dist{ font-family:"Fraunces",serif; font-size:19px; color:#a23b2b; flex:0 0 auto; }
+  .lb-dist small{ font-size:11px; color:#7a5a2c; margin-left:2px; }
+  .lb-empty{ text-align:center; color:#6b4f2a; font-size:13px; padding:18px 0; }
+  /* Vintage close button used inside the parchment cards */
+  .vbtn{ background:rgba(120,90,40,.14) !important; border:1px solid rgba(120,90,40,.45) !important; color:#3a2a16 !important; }
 
-  /* ---- Celebration lottie overlay ---- */
-  .celebrate{position:fixed;inset:0;z-index:14;pointer-events:none;opacity:0;transition:opacity .3s}
-  .celebrate.show{opacity:1}
-  .celebrate lottie-player{width:100%;height:100%}
+  /* --- GLOWING HEARTS ON THE GLOBE --- */
+  .globe-heart{ position:relative; pointer-events:none; transform:translate(-50%,-50%); font-size:16px; color:#ff4d6d;
+    text-shadow:0 0 6px rgba(255,77,109,.9), 0 0 14px rgba(255,77,109,.7), 0 0 22px rgba(255,120,150,.5);
+    animation:heartPulse 1.8s ease-in-out infinite; will-change:transform,opacity; }
+  @keyframes heartPulse{ 0%,100%{ transform:translate(-50%,-50%) scale(1); opacity:.85; } 50%{ transform:translate(-50%,-50%) scale(1.35); opacity:1; } }
 </style>
 </head>
 <body>
 
+  <canvas id="spaceCanvas"></canvas>
+  <canvas id="shootCanvas"></canvas>
+
+  <div class="satellite sat-1">
+    <svg class="sat-svg" viewBox="0 0 140 60">
+      <line x1="44" y1="30" x2="56" y2="30" stroke="#b9b9c4" stroke-width="3"/>
+      <line x1="84" y1="30" x2="96" y2="30" stroke="#b9b9c4" stroke-width="3"/>
+      <g stroke="#8fb0ff" stroke-width="1">
+        <rect x="4" y="14" width="40" height="32" rx="2" fill="#244b8f"/>
+        <rect x="4" y="14" width="40" height="6" fill="#3a6fd8" stroke="none" opacity=".6"/>
+        <line x1="17" y1="14" x2="17" y2="46"/><line x1="30" y1="14" x2="30" y2="46"/>
+        <line x1="4" y1="30" x2="44" y2="30"/>
+        <rect x="96" y="14" width="40" height="32" rx="2" fill="#244b8f"/>
+        <rect x="96" y="14" width="40" height="6" fill="#3a6fd8" stroke="none" opacity=".6"/>
+        <line x1="109" y1="14" x2="109" y2="46"/><line x1="122" y1="14" x2="122" y2="46"/>
+        <line x1="96" y1="30" x2="136" y2="30"/>
+      </g>
+      <rect x="56" y="16" width="28" height="28" rx="4" fill="#d9b36b" stroke="#5c451f" stroke-width="1.5"/>
+      <rect x="56" y="16" width="28" height="9" rx="4" fill="#f4d9a0" stroke="none" opacity=".7"/>
+      <rect x="60" y="29" width="20" height="6" rx="1" fill="#2a1c0c" opacity=".5"/>
+      <ellipse cx="70" cy="8" rx="9" ry="4" fill="#e9e9f2" stroke="#8a8a9a" stroke-width="1"/>
+      <line x1="70" y1="16" x2="70" y2="10" stroke="#8a8a9a" stroke-width="1.5"/>
+      <circle cx="70" cy="8" r="1.6" fill="#ff5a5a"/>
+    </svg>
+  </div>
+  <div class="satellite sat-2">
+    <svg class="sat-svg" viewBox="0 0 140 60">
+      <line x1="44" y1="30" x2="56" y2="30" stroke="#b9b9c4" stroke-width="3"/>
+      <line x1="84" y1="30" x2="96" y2="30" stroke="#b9b9c4" stroke-width="3"/>
+      <g stroke="#8fb0ff" stroke-width="1">
+        <rect x="4" y="14" width="40" height="32" rx="2" fill="#244b8f"/>
+        <line x1="17" y1="14" x2="17" y2="46"/><line x1="30" y1="14" x2="30" y2="46"/>
+        <line x1="4" y1="30" x2="44" y2="30"/>
+        <rect x="96" y="14" width="40" height="32" rx="2" fill="#244b8f"/>
+        <line x1="109" y1="14" x2="109" y2="46"/><line x1="122" y1="14" x2="122" y2="46"/>
+        <line x1="96" y1="30" x2="136" y2="30"/>
+      </g>
+      <rect x="56" y="16" width="28" height="28" rx="4" fill="#cfcfd8" stroke="#5a5a6a" stroke-width="1.5"/>
+      <rect x="56" y="16" width="28" height="9" rx="4" fill="#f0f0f6" stroke="none" opacity=".7"/>
+      <ellipse cx="70" cy="8" rx="8" ry="3.5" fill="#e9e9f2" stroke="#8a8a9a" stroke-width="1"/>
+      <line x1="70" y1="16" x2="70" y2="10" stroke="#8a8a9a" stroke-width="1.5"/>
+    </svg>
+  </div>
+  <div class="satellite sat-3">
+    <svg class="sat-svg" viewBox="0 0 140 60">
+      <line x1="44" y1="30" x2="56" y2="30" stroke="#b9b9c4" stroke-width="3"/>
+      <line x1="84" y1="30" x2="96" y2="30" stroke="#b9b9c4" stroke-width="3"/>
+      <g stroke="#8fb0ff" stroke-width="1">
+        <rect x="4" y="14" width="40" height="32" rx="2" fill="#244b8f"/>
+        <rect x="4" y="14" width="40" height="6" fill="#3a6fd8" stroke="none" opacity=".6"/>
+        <line x1="17" y1="14" x2="17" y2="46"/><line x1="30" y1="14" x2="30" y2="46"/>
+        <line x1="4" y1="30" x2="44" y2="30"/>
+        <rect x="96" y="14" width="40" height="32" rx="2" fill="#244b8f"/>
+        <rect x="96" y="14" width="40" height="6" fill="#3a6fd8" stroke="none" opacity=".6"/>
+        <line x1="109" y1="14" x2="109" y2="46"/><line x1="122" y1="14" x2="122" y2="46"/>
+        <line x1="96" y1="30" x2="136" y2="30"/>
+      </g>
+      <rect x="56" y="16" width="28" height="28" rx="4" fill="#d9b36b" stroke="#5c451f" stroke-width="1.5"/>
+      <rect x="56" y="16" width="28" height="9" rx="4" fill="#f4d9a0" stroke="none" opacity=".7"/>
+      <rect x="60" y="29" width="20" height="6" rx="1" fill="#2a1c0c" opacity=".5"/>
+      <ellipse cx="70" cy="8" rx="9" ry="4" fill="#e9e9f2" stroke="#8a8a9a" stroke-width="1"/>
+      <line x1="70" y1="16" x2="70" y2="10" stroke="#8a8a9a" stroke-width="1.5"/>
+      <circle cx="70" cy="8" r="1.6" fill="#5affa0"/>
+    </svg>
+  </div>
+
   <div class="fancy-loader" id="loader">
     <div class="loader-anim">
-      <!-- SVG plane is the guaranteed fallback; the Lottie plays on top once loaded -->
-      <svg viewBox="0 0 100 100" class="plane-svg" id="loaderFallback">
+      <div id="lottiePlane" style="width:170px;height:170px;"></div>
+      <svg viewBox="0 0 100 100" class="plane-svg" id="loaderFallback" style="display:none">
         <path class="plane-path" d="M10 50 L90 20 L40 90 L40 60 L10 50 Z M40 60 L60 40" />
       </svg>
-      <lottie-player class="loader-lottie" id="loaderLottie"
-        src="https://assets10.lottiefiles.com/packages/lf20_jmgekfqg.json"
-        background="transparent" speed="1" loop autoplay></lottie-player>
     </div>
     <div class="loader-text">Charting Winds...</div>
   </div>
@@ -303,70 +334,67 @@
   <div id="globe"></div>
   <div id="satellite-map"></div>
 
-  <div class="topbar">
+  <div class="topbar" id="topbar">
     <div class="brand"><h1>Paper Sling</h1><p>crumple it · load it · sling it</p></div>
-    <div style="display:flex;gap:9px">
-      <div class="chip"><div class="k">Stamps</div><div class="v" id="s-stamps">0</div></div>
+    <div class="top-actions">
+      <div class="counter-chip" id="counterChip" title="Stamps slung worldwide">
+        <span class="cc-emoji">📮</span><b id="slingCount">—</b><span class="cc-label">slung</span>
+      </div>
+      <button class="lb-btn" id="lbBtn" onclick="openLeaderboard()">🏆 Leaderboard</button>
+      <button class="lb-btn" id="globeThemeBtn" onclick="cycleGlobeTheme()">🌐 Night</button>
     </div>
   </div>
 
-  <button class="sound" id="sound" aria-label="Toggle sound" aria-pressed="false">
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M11 5 6 9H3v6h3l5 4z"/>
-      <path id="snd-wave" d="M16 9a5 5 0 0 1 0 6" style="display:none"/>
-      <line id="snd-m1" x1="22" y1="9" x2="16" y2="15"/><line id="snd-m2" x1="16" y1="9" x2="22" y2="15"/>
-    </svg>
-  </button>
-
-  <div class="passport" id="passport"></div>
-
   <div class="dock" id="studio">
     <div class="studio">
-      <button class="studio-close" id="studioClose" aria-label="Close and view the globe" title="View the globe">
-        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
-      </button>
-      <p class="from" id="from">writing from <b>Faridabad, India</b></p>
+      <button class="studio-close" id="studioClose" title="Peek at the globe">✕</button>
+      <p class="from" id="from">writing from <b>Detecting location...</b></p>
       
       <div class="stage">
         <div class="sheet" id="sheet">
-          <span class="status-tag" id="status-tag">paper: crisp</span>
-          <textarea id="wish" maxlength="110" placeholder="Write a wish, or a note to someone…"></textarea>
-          <div class="paper-stamp" id="paperStamp"></div>
+          <div class="stamp-slot" id="stampSlot">
+            <div class="stamp-prompt">Tap here<br>for stamp</div>
+            <svg class="stamp-svg" id="stampSvg" viewBox="0 0 62 74"></svg>
+          </div>
+          <div class="sheet-header" id="sheet-header">
+            <input type="text" id="senderName" placeholder="Your Name" autocomplete="off" />
+            <input type="tel" id="receiverPhone" placeholder="Friend's Phone No." maxlength="10" autocomplete="off" />
+            <div id="form-error"></div>
+          </div>
+          <textarea id="wish" maxlength="110" placeholder="Write a secret note to them…"></textarea>
         </div>
       </div>
 
       <div class="actionbar">
         <button class="btn" id="action-btn" disabled>
           <svg viewBox="0 0 24 24"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg>
-          Crumple
+          Lock & Crumple
         </button>
       </div>
-      <p class="hint" id="hint">Write your note to anyone, anywhere on Earth…</p>
+      <p class="hint" id="hint">Fill out the details to seal your surprise note.</p>
     </div>
   </div>
 
+  <button class="open-paper-btn" id="openPaperBtn">✉️ Write a Note</button>
+
   <div class="slingshot-view" id="slingshotView">
     <svg class="aim-hud" viewBox="0 0 300 300" id="aimHud">
-      <path id="aimLine" d="M150 150 L150 20" stroke="rgba(255, 207, 138, 0.8)" stroke-width="3" stroke-dasharray="8,8" stroke-linecap="round" fill="none"/>
-      <polygon id="aimHead" points="150,10 142,25 158,25" fill="var(--halo)" />
+      <g id="aimGroup" transform="rotate(0 150 150)">
+        <path id="aimLine" d="M150 150 L150 26" stroke="rgba(255, 207, 138, 0.9)" stroke-width="4" stroke-dasharray="9,9" stroke-linecap="round" fill="none"/>
+        <polygon id="aimHead" points="150,12 138,34 162,34" fill="var(--halo)" />
+      </g>
     </svg>
-
     <svg class="sling-svg" viewBox="0 0 240 240" id="slingSvg">
       <defs>
         <linearGradient id="woodG" x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stop-color="#a9743f"/><stop offset=".45" stop-color="#7c4a22"/><stop offset="1" stop-color="#492a13"/>
         </linearGradient>
-        <linearGradient id="woodEdge" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="#d3a86d"/><stop offset="1" stop-color="#5e3a1c"/>
-        </linearGradient>
       </defs>
       <line id="band-left"  x1="60"  y1="62" x2="120" y2="90" stroke="#7c2d2d" stroke-width="8" stroke-linecap="round"/>
       <line id="band-right" x1="180" y1="62" x2="120" y2="90" stroke="#7c2d2d" stroke-width="8" stroke-linecap="round"/>
       <path d="M105 235 Q103 180 110 146 Q84 105 57 67 Q52 55 67 60 Q105 93 120 127 Q134 93 172 60 Q187 55 182 67 Q156 105 129 146 Q136 180 134 235 Z" fill="url(#woodG)" stroke="#3a2110" stroke-width="3" stroke-linejoin="round"/>
-      <path d="M110 144 Q86 105 60 69" fill="none" stroke="url(#woodEdge)" stroke-width="4" stroke-linecap="round" opacity=".75"/>
-      <path d="M129 144 Q153 105 180 69" fill="none" stroke="#caa06a" stroke-width="3" stroke-linecap="round" opacity=".4"/>
-      <circle cx="60" cy="62" r="9" fill="url(#woodEdge)" stroke="#3a2110" stroke-width="2"/>
-      <circle cx="180" cy="62" r="9" fill="url(#woodEdge)" stroke="#3a2110" stroke-width="2"/>
+      <circle cx="60" cy="62" r="9" fill="#d3a86d" stroke="#3a2110" stroke-width="2"/>
+      <circle cx="180" cy="62" r="9" fill="#d3a86d" stroke="#3a2110" stroke-width="2"/>
     </svg>
     <div class="pouch-ball" id="pouchBall"></div>
   </div>
@@ -379,87 +407,253 @@
       <div class="sm-fill" id="smFill"></div>
     </div>
     <div class="sm-label">Strength</div>
-    <div class="sm-wind" id="smWind">×350 km</div>
   </div>
 
   <div class="mascot" id="mascot">
-    <div class="avatar">
-      <span class="avatar-emoji">🕊️</span>
-      <lottie-player src="https://assets10.lottiefiles.com/packages/lf20_touohxv0.json"
-        background="transparent" speed="1" loop autoplay></lottie-player>
-    </div>
+    <div class="avatar"><span class="avatar-emoji">🕊️</span></div>
     <div class="bubble" id="mascotBubble"></div>
   </div>
-
-  <button class="map-back" id="mapBack">
-    <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg> Back to globe
-  </button>
-
-  <button class="write-fab" id="writeFab">
-    <svg viewBox="0 0 24 24"><path d="M12 19l7-7 3 3-7 7-3-3zM18 13l-1.5-1.5M2 22l1.5-5.5L15 5l4 4L7.5 20.5 2 22z"/></svg>
-    Write a wish
-  </button>
-
-  <div class="celebrate" id="celebrate">
-    <lottie-player id="celebrateLottie"
-      src="https://assets1.lottiefiles.com/packages/lf20_u4yrau.json"
-      background="transparent" speed="1" autoplay loop></lottie-player>
-  </div>
-
-  <div class="toast" id="toast"></div>
 
   <div class="scrim" id="scrim">
     <div class="resultwrap">
       <div class="result" id="result">
         <div class="rcard">
-          <p class="rtier" id="r-tier"></p>
+          <div id="lottieCelebrate" style="position:absolute;left:0;right:0;top:-16px;height:170px;pointer-events:none;z-index:6;"></div>
+          <div class="postmark"><span id="pm-city">HERE</span><i>✈ slung ✈</i></div>
+          <p class="rc-airmail">✦ ✦ ✦&nbsp;&nbsp;PAR AVION&nbsp;&nbsp;✦ ✦ ✦</p>
+          <p class="rtier" id="r-tier">SURPRISE LANDED</p>
           <p class="rdist"><span id="r-dist">0</span> <small>km</small></p>
           <p class="rroute" id="r-route"></p>
-          <div class="stampseat" id="r-stamp"></div>
           <p class="rwish" id="r-wish"></p>
-          <div class="rmeta">
-            <div><div class="k">Score</div><div class="v" id="r-score">0</div></div>
-            <div><div class="k">Streak</div><div class="v" id="r-streak">×1</div></div>
-            <div><div class="k">Stamps</div><div class="v" id="r-stampn">1</div></div>
-          </div>
-          <p class="rnote" id="r-note"></p>
-          <p class="rmark">paper sling</p>
+          <p class="rquote" id="r-quote"></p>
         </div>
       </div>
-      <div class="ractions">
-        <button id="r-explore">Explore globe</button>
-        <button id="r-again" class="primary">Sling Another</button>
+      <div class="ractions" id="ractions">
+        </div>
+    </div>
+  </div>
+
+  <div class="scrim" id="lb-scrim">
+    <div class="resultwrap">
+      <div class="result">
+        <div class="rcard">
+          <p class="rtier">🏆 GLOBAL LEADERBOARD</p>
+          <p style="text-align:center; font-size:12px; color:#6b4f2a; margin:6px 0 16px; font-family:'Courier Prime',monospace;">The farthest paper planes ever slung</p>
+          <div id="lb-list"></div>
+          <div class="ractions">
+            <button class="vbtn" onclick="closeLeaderboard()">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="scrim" id="puzzle-scrim">
+    <div class="resultwrap">
+      <div class="result puzzle-box">
+        <h2>💌 A Surprise For You</h2>
+        <p>A paper plane flew across the world from <b id="puz-sender" style="color:#a23b2b"></b> and landed right here, just for you.</p>
+        <p class="puzzle-quote">Someone is thinking of you tonight and one day, they just might bring you to where this little plane landed. ✨</p>
+        <p style="font-size: 13px;">Solve the tiny riddle below to unfold your note:</p>
+
+        <div class="math-q" id="puz-question">12 + 15 = ?</div>
+        <input type="number" id="puz-answer" placeholder="Answer" />
+        <p class="puzzle-chances" id="puz-chances">Chances left: 3</p>
+        
+        <button class="btn" style="background:linear-gradient(180deg,var(--halo),var(--ember-deep)); color:#2a1606; width:100%; border:none;" onclick="verifyPuzzle()">Unlock Note</button>
       </div>
     </div>
   </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/globe.gl@2.32.4/dist/globe.gl.min.js"></script>
-<!-- Firebase (compat build — works with classic scripts below) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-<!-- EmailJS (free email service) — optional; only used if EMAIL_CONFIG is filled in -->
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 
 <script>
-/* ---------- helpers ---------- */
 const $=id=>document.getElementById(id);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const fmt=n=>n.toLocaleString("en-US");
-function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");
-  clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("show"),2600);}
 
-/* ============================================================================
-   🔥 FIREBASE — PASTE YOUR CONFIG HERE
-   ----------------------------------------------------------------------------
-   1. Go to https://console.firebase.google.com → create / open a project.
-   2. Add a Web app (</> icon) and copy its "firebaseConfig" object.
-   3. Paste the values below (keep the quotes).
-   4. In the console: Build → Firestore Database → Create database (Start in
-      *test mode* for quick demos, or add rules that allow read/write to the
-      "slings" collection).
-   Leave it blank to run fully offline with local seed pins — nothing breaks.
-   ============================================================================ */
+/* --- LOTTIE ANIMATIONS (hand-authored) --- */
+// Cool paper-plane loader: a banking plane that bobs over a pulsing ember glow.
+const LOTTIE_PLANE = {
+  "v":"5.7.4","fr":60,"ip":0,"op":90,"w":200,"h":200,"nm":"PaperPlane","ddd":0,"assets":[],
+  "layers":[
+    { "ddd":0,"ind":1,"ty":4,"nm":"glow","sr":1,
+      "ks":{
+        "o":{"a":1,"k":[
+          {"t":0,"s":[34],"i":{"x":[0.4],"y":[1]},"o":{"x":[0.6],"y":[0]}},
+          {"t":45,"s":[12],"i":{"x":[0.4],"y":[1]},"o":{"x":[0.6],"y":[0]}},
+          {"t":90,"s":[34]} ]},
+        "r":{"a":0,"k":0}, "p":{"a":0,"k":[100,100,0]}, "a":{"a":0,"k":[0,0,0]},
+        "s":{"a":1,"k":[
+          {"t":0,"s":[70,70,100],"i":{"x":[0.4,0.4,0.4],"y":[1,1,1]},"o":{"x":[0.6,0.6,0.6],"y":[0,0,0]}},
+          {"t":45,"s":[122,122,100],"i":{"x":[0.4,0.4,0.4],"y":[1,1,1]},"o":{"x":[0.6,0.6,0.6],"y":[0,0,0]}},
+          {"t":90,"s":[70,70,100]} ]}
+      },
+      "shapes":[{"ty":"gr","it":[
+        {"ty":"el","p":{"a":0,"k":[0,0]},"s":{"a":0,"k":[120,120]}},
+        {"ty":"fl","c":{"a":0,"k":[1,0.69,0.36,1]},"o":{"a":0,"k":100}},
+        {"ty":"tr","p":{"a":0,"k":[0,0]},"a":{"a":0,"k":[0,0]},"s":{"a":0,"k":[100,100]},"r":{"a":0,"k":0},"o":{"a":0,"k":100}}
+      ]}],
+      "ip":0,"op":90,"st":0,"bm":0 },
+    { "ddd":0,"ind":2,"ty":4,"nm":"plane","sr":1,
+      "ks":{
+        "o":{"a":0,"k":100},
+        "r":{"a":1,"k":[
+          {"t":0,"s":[-12],"i":{"x":[0.4],"y":[1]},"o":{"x":[0.6],"y":[0]}},
+          {"t":45,"s":[12],"i":{"x":[0.4],"y":[1]},"o":{"x":[0.6],"y":[0]}},
+          {"t":90,"s":[-12]} ]},
+        "p":{"a":1,"k":[
+          {"t":0,"s":[100,112,0],"i":{"x":0.4,"y":1},"o":{"x":0.6,"y":0}},
+          {"t":45,"s":[100,88,0],"i":{"x":0.4,"y":1},"o":{"x":0.6,"y":0}},
+          {"t":90,"s":[100,112,0]} ]},
+        "a":{"a":0,"k":[0,0,0]}, "s":{"a":0,"k":[100,100,100]}
+      },
+      "shapes":[
+        {"ty":"gr","it":[
+          {"ty":"sh","ks":{"a":0,"k":{"i":[[0,0],[0,0],[0,0],[0,0]],"o":[[0,0],[0,0],[0,0],[0,0]],"v":[[48,0],[-42,-30],[-14,0],[-42,30]],"c":true}}},
+          {"ty":"fl","c":{"a":0,"k":[0.992,0.984,0.969,1]},"o":{"a":0,"k":100}},
+          {"ty":"st","c":{"a":0,"k":[1,0.54,0.24,1]},"o":{"a":0,"k":100},"w":{"a":0,"k":4},"lc":2,"lj":2},
+          {"ty":"tr","p":{"a":0,"k":[0,0]},"a":{"a":0,"k":[0,0]},"s":{"a":0,"k":[100,100]},"r":{"a":0,"k":0},"o":{"a":0,"k":100}}
+        ]},
+        {"ty":"gr","it":[
+          {"ty":"sh","ks":{"a":0,"k":{"i":[[0,0],[0,0]],"o":[[0,0],[0,0]],"v":[[48,0],[-14,0]],"c":false}}},
+          {"ty":"st","c":{"a":0,"k":[1,0.54,0.24,1]},"o":{"a":0,"k":65},"w":{"a":0,"k":3},"lc":2,"lj":2},
+          {"ty":"tr","p":{"a":0,"k":[0,0]},"a":{"a":0,"k":[0,0]},"s":{"a":0,"k":[100,100]},"r":{"a":0,"k":0},"o":{"a":0,"k":100}}
+        ]}
+      ],
+      "ip":0,"op":90,"st":0,"bm":0 }
+  ]
+};
+
+// Celebratory confetti burst, generated so each piece flies out and falls with gravity.
+function buildConfettiLottie() {
+  const colors = [[1,0.69,0.36,1],[1,0.36,0.56,1],[0.36,0.8,1,1],[0.5,0.95,0.6,1],[1,0.85,0.3,1]];
+  const layers = [], N = 22;
+  for(let i=0;i<N;i++){
+    const ang = (Math.PI*2*i/N) + Math.random()*0.35;
+    const dist = 55 + Math.random()*65;
+    const ex = Math.cos(ang)*dist, ey = Math.sin(ang)*dist - 25;
+    const col = colors[i%colors.length];
+    const w = 5 + Math.random()*5, hh = w*1.7;
+    layers.push({
+      "ddd":0,"ind":i+1,"ty":4,"nm":"c"+i,"sr":1,
+      "ks":{
+        "o":{"a":1,"k":[
+          {"t":0,"s":[0],"i":{"x":[0.2],"y":[1]},"o":{"x":[0.8],"y":[0]}},
+          {"t":7,"s":[100],"i":{"x":[0.4],"y":[1]},"o":{"x":[0.6],"y":[0]}},
+          {"t":48,"s":[100],"i":{"x":[0.4],"y":[1]},"o":{"x":[0.6],"y":[0]}},
+          {"t":72,"s":[0]} ]},
+        "r":{"a":1,"k":[
+          {"t":0,"s":[0],"i":{"x":[0.4],"y":[1]},"o":{"x":[0.6],"y":[0]}},
+          {"t":72,"s":[180+Math.random()*220]} ]},
+        "p":{"a":1,"k":[
+          {"t":0,"s":[100,100,0],"i":{"x":0.15,"y":1},"o":{"x":0.4,"y":0}},
+          {"t":38,"s":[100+ex,100+ey,0],"i":{"x":0.4,"y":1},"o":{"x":0.6,"y":0}},
+          {"t":72,"s":[100+ex*1.12,100+ey+55,0]} ]},
+        "a":{"a":0,"k":[0,0,0]}, "s":{"a":0,"k":[100,100,100]}
+      },
+      "shapes":[{"ty":"gr","it":[
+        {"ty":"rc","p":{"a":0,"k":[0,0]},"s":{"a":0,"k":[w,hh]},"r":{"a":0,"k":1.5}},
+        {"ty":"fl","c":{"a":0,"k":col},"o":{"a":0,"k":100}},
+        {"ty":"tr","p":{"a":0,"k":[0,0]},"a":{"a":0,"k":[0,0]},"s":{"a":0,"k":[100,100]},"r":{"a":0,"k":0},"o":{"a":0,"k":100}}
+      ]}],
+      "ip":0,"op":75,"st":0,"bm":0
+    });
+  }
+  return {"v":"5.7.4","fr":60,"ip":0,"op":75,"w":200,"h":200,"nm":"confetti","ddd":0,"assets":[],"layers":layers};
+}
+
+let celebrateAnim = null;
+function playCelebrate() {
+  const el = $("lottieCelebrate");
+  if(!el || typeof lottie === "undefined") return;
+  if(celebrateAnim) celebrateAnim.destroy();
+  celebrateAnim = lottie.loadAnimation({ container: el, renderer: "svg", loop: false, autoplay: true, animationData: buildConfettiLottie() });
+}
+
+function initLotties() {
+  const planeEl = $("lottiePlane");
+  if(typeof lottie === "undefined" || !planeEl) {
+    // Lottie lib unavailable (e.g. offline) fall back to the original SVG plane.
+    $("loaderFallback").style.display = "block";
+    return;
+  }
+  lottie.loadAnimation({ container: planeEl, renderer: "svg", loop: true, autoplay: true, animationData: LOTTIE_PLANE });
+}
+
+/* --- CANVAS STARFIELD (back) + SHOOTING STARS / METEOR SHOWERS (front) --- */
+function initSpaceCanvas() {
+    const c = $("spaceCanvas"), c2 = $("shootCanvas");
+    const ctx = c.getContext('2d'), ctx2 = c2.getContext('2d');
+    let w = c.width = c2.width = window.innerWidth, h = c.height = c2.height = window.innerHeight;
+
+    const stars = Array(220).fill().map(() => ({
+      x: Math.random()*w, y: Math.random()*h, r: Math.random()*1.4+0.4,
+      a: Math.random()*Math.PI*2, s: Math.random()*0.02+0.004,
+      hue: Math.random() < 0.15 ? (Math.random() < 0.5 ? '#bcd4ff' : '#ffe0b0') : '#ffffff'
+    }));
+
+    const shootingStars = [];
+    let showerCooldown = 0;
+
+    function spawnShootingStar() {
+      // Streak diagonally down-right across the upper part of the sky.
+      shootingStars.push({
+        x: Math.random()*w*1.2 - w*0.2, y: Math.random()*h*0.5 - 30,
+        len: Math.random()*150+90, v: Math.random()*7+10,
+        ang: Math.PI*0.27 + (Math.random()*0.12 - 0.06)
+      });
+    }
+    function spawnShower() {
+      const n = 5 + Math.floor(Math.random()*4);
+      for(let i=0;i<n;i++) setTimeout(spawnShootingStar, i*120);
+    }
+    // Kick things off so a streak is visible almost immediately.
+    setTimeout(spawnShower, 1200);
+
+    function animate() {
+        // Back canvas: twinkling starfield (behind the globe).
+        ctx.clearRect(0,0,w,h);
+        stars.forEach(s => {
+            s.a += s.s;
+            ctx.globalAlpha = 0.15 + Math.abs(Math.sin(s.a)) * 0.85;
+            ctx.fillStyle = s.hue;
+            ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx.fill();
+        });
+        ctx.globalAlpha = 1;
+
+        // Front canvas: shooting stars (above the globe so never blocked).
+        ctx2.clearRect(0,0,w,h);
+        if(Math.random() < 0.05) spawnShootingStar();
+        showerCooldown++;
+        if(showerCooldown > 260 && Math.random() < 0.03) { spawnShower(); showerCooldown = 0; }
+
+        for(let i=shootingStars.length-1; i>=0; i--) {
+            const ss = shootingStars[i];
+            const dx = Math.cos(ss.ang)*ss.len, dy = Math.sin(ss.ang)*ss.len;
+            const grad = ctx2.createLinearGradient(ss.x, ss.y, ss.x-dx, ss.y-dy);
+            grad.addColorStop(0, 'rgba(255,255,255,0.98)');
+            grad.addColorStop(0.35, 'rgba(255,207,138,0.75)');
+            grad.addColorStop(1, 'rgba(255,207,138,0)');
+            ctx2.strokeStyle = grad; ctx2.lineWidth = 2.4; ctx2.lineCap = 'round';
+            ctx2.beginPath(); ctx2.moveTo(ss.x, ss.y); ctx2.lineTo(ss.x-dx, ss.y-dy); ctx2.stroke();
+            ctx2.globalAlpha = 0.95; ctx2.fillStyle = '#fff';
+            ctx2.beginPath(); ctx2.arc(ss.x, ss.y, 2, 0, Math.PI*2); ctx2.fill();
+            ctx2.globalAlpha = 1;
+            ss.x += Math.cos(ss.ang)*ss.v; ss.y += Math.sin(ss.ang)*ss.v;
+            if(ss.y > h+80 || ss.x > w+200) shootingStars.splice(i, 1);
+        }
+
+        requestAnimationFrame(animate);
+    }
+    animate();
+    window.addEventListener('resize', () => { w = c.width = c2.width = window.innerWidth; h = c.height = c2.height = window.innerHeight; });
+}
+
+/* --- FIREBASE CONFIG --- */
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyA6SXrNUtEYfvS-r-M6N8RyHrAF_MgTLoQ",
   authDomain: "globe-eacaa.firebaseapp.com",
@@ -469,447 +663,515 @@ const FIREBASE_CONFIG = {
   appId: "1:795556346868:web:9104e78edd4fa6e1ba97a1"
 };
 
-
 let db = null, fbReady = false;
-function initFirebase(){
-  try{
-    if(!FIREBASE_CONFIG.projectId || !FIREBASE_CONFIG.apiKey){
-      console.info("Paper Sling: Firebase not configured — running in local mode.");
-      return;
-    }
-    firebase.initializeApp(FIREBASE_CONFIG);
-    db = firebase.firestore();
-    fbReady = true;
-    console.info("Paper Sling: Firebase connected ✔");
-  }catch(e){ console.warn("Paper Sling: Firebase init failed —", e.message); fbReady = false; }
-}
+try{
+  firebase.initializeApp(FIREBASE_CONFIG);
+  db = firebase.firestore();
+  fbReady = true;
+}catch(e){ console.warn("Firebase init failed"); }
+
 async function saveSling(rec){
   if(!fbReady || !db) return;
   try{ await db.collection("slings").add({ ...rec, ts: Date.now() }); }
-  catch(e){ console.warn("saveSling failed:", e.message); }
+  catch(e){ console.warn("saveSling failed"); }
 }
-function subscribeSlings(){
+
+/* --- COMMUNITY: live counter, globe notes & leaderboard --- */
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+let globeNotes = [];
+function renderGlobeMessages(){ try { world.htmlElementsData(globeNotes); } catch(e){} }
+
+async function refreshCount(){
   if(!fbReady || !db) return;
-  db.collection("slings").orderBy("ts","desc").limit(300).onSnapshot(
-    snap => {
-      const docs = snap.docs.map(d => ({ id:d.id, ...d.data() }))
-        .filter(d => typeof d.lat === "number" && typeof d.lng === "number");
-      messages = docs.length ? docs : [...SEED_MESSAGES];   // keep seeds if collection is empty
-      renderMarkers();
-    },
-    err => console.warn("subscribeSlings failed (check Firestore rules):", err.message)
-  );
+  try {
+    // Exact total via the server-side aggregate (no doc reads).
+    const agg = await db.collection("slings").count().get();
+    $("slingCount").textContent = fmt(agg.data().count);
+  } catch(e){
+    try {
+      // Aggregate unsupported read the whole collection for an exact size.
+      const snap = await db.collection("slings").get();
+      $("slingCount").textContent = fmt(snap.size);
+    } catch(e2){ /* offline leave the placeholder */ }
+  }
 }
 
-/* ============================================================================
-   ✉️  FREE EMAIL (EmailJS) — OPTIONAL
-   ----------------------------------------------------------------------------
-   Leave blank to skip entirely. To enable: make a free account at emailjs.com,
-   create a service + template, then paste the 3 IDs and a recipient below.
-   If anything fails (no config / network / quota), it is caught and ignored.
-   ============================================================================ */
-const EMAIL_CONFIG = {
-  publicKey:  "",   // EmailJS "Public Key"
-  serviceId:  "",   // EmailJS Service ID
-  templateId: "",   // EmailJS Template ID
-  toEmail:    ""    // where the notification goes
-};
-let mailReady = false;
-function initMailer(){
-  try{
-    if(EMAIL_CONFIG.publicKey && window.emailjs){
-      emailjs.init({ publicKey: EMAIL_CONFIG.publicKey });
-      mailReady = true;
-      console.info("Paper Sling: EmailJS ready ✔");
-    }
-  }catch(e){ mailReady=false; }
+function loadCommunity(){
+  if(!fbReady || !db){ $("slingCount").textContent = "—"; return; }
+  // Live recent notes feed both the globe markers and the counter fallback.
+  db.collection("slings").orderBy("ts","desc").limit(40).onSnapshot(snap => {
+    globeNotes = snap.docs.map(d => d.data())
+      .filter(d => typeof d.lat === "number" && typeof d.lng === "number");
+    renderGlobeMessages();
+    refreshCount();
+  }, err => console.warn("community listen failed", err));
 }
-async function sendWishEmail(rec){
-  if(!mailReady || !EMAIL_CONFIG.serviceId || !EMAIL_CONFIG.templateId) return; // not set up → skip
-  try{
-    await emailjs.send(EMAIL_CONFIG.serviceId, EMAIL_CONFIG.templateId, {
-      to_email: EMAIL_CONFIG.toEmail,
-      wish: rec.wish, from_city: rec.fromCity, to_city: rec.toCity, distance: rec.distance
+
+async function openLeaderboard(){
+  $("lb-scrim").classList.add("show");
+  $("lb-list").innerHTML = `<p class="lb-empty">Loading…</p>`;
+  if(!fbReady || !db){ $("lb-list").innerHTML = `<p class="lb-empty">Leaderboard needs an internet connection.</p>`; return; }
+  try {
+    const snap = await db.collection("slings").orderBy("distance","desc").limit(10).get();
+    if(snap.empty){ $("lb-list").innerHTML = `<p class="lb-empty">No slings yet be the first! ✈️</p>`; return; }
+    let html = "", rank = 1;
+    snap.forEach(doc => {
+      const d = doc.data();
+      const medal = rank===1?"🥇":rank===2?"🥈":rank===3?"🥉":`<span class="lb-rank">${rank}</span>`;
+      html += `<div class="lb-row">
+        <div class="lb-pos">${medal}</div>
+        <div class="lb-name">${escapeHtml(d.senderName || "Anonymous")}<small>${escapeHtml(d.originCity || "?")} → ${escapeHtml(d.city || "?")}</small></div>
+        <div class="lb-dist">${fmt(d.distance || 0)}<small>km</small></div>
+      </div>`;
+      rank++;
     });
-  }catch(e){ console.warn("Paper Sling: email skipped —", e?.text || e?.message || e); } // fallback: move on
+    $("lb-list").innerHTML = html;
+  } catch(e){
+    $("lb-list").innerHTML = `<p class="lb-empty">Couldn't load the leaderboard right now.</p>`;
+  }
+}
+function closeLeaderboard(){ $("lb-scrim").classList.remove("show"); }
+
+/* --- FORM VALIDATION --- */
+const foulWords = ["shit", "fuck", "bitch", "asshole", "idiot", "stupid", "bastard", "damn"]; 
+
+function validateInputs() {
+  const name = $("senderName").value.trim();
+  const phone = $("receiverPhone").value.trim();
+  const note = $("wish").value.trim().toLowerCase();
+  
+  if(!name || !phone || !note) return false;
+  
+  if(!/^\d{10}$/.test(phone)) {
+    $("form-error").textContent = "Please enter a valid 10-digit phone number.";
+    return false;
+  }
+  
+  const containsFoul = foulWords.some(word => note.includes(word));
+  if(containsFoul) {
+    $("form-error").textContent = "Please keep your surprise note friendly! No foul language.";
+    return false;
+  }
+  
+  $("form-error").textContent = "";
+  return true;
 }
 
-/* ---------- great-circle distance + land snapping (no ocean landings) ---------- */
+["senderName", "receiverPhone", "wish"].forEach(id => {
+  $(id).addEventListener("input", () => { $("action-btn").disabled = !validateInputs(); });
+});
+
+/* --- POSTAGE STAMP --- */
+// Each design carries the sender's location at the bottom (via the __LOC__ token).
+const STAMP_DESIGNS = [
+  // Air-mail plane (ember)
+  `<rect x="2" y="2" width="58" height="70" rx="3" fill="#fff" stroke="#c2452f" stroke-width="2" stroke-dasharray="3 2"/>
+   <rect x="6" y="6" width="50" height="62" rx="2" fill="#ffe9c7"/>
+   <text x="31" y="13" font-size="6" text-anchor="middle" fill="#c2452f" font-family="Inter" font-weight="800" letter-spacing="1">PAR AVION</text>
+   <text x="31" y="40" font-size="22" text-anchor="middle">✈️</text>
+   <line x1="11" y1="50" x2="51" y2="50" stroke="#c2452f" stroke-width="0.7" opacity="0.45"/>
+   <text x="31" y="60" font-size="7" text-anchor="middle" fill="#c2452f" font-family="Inter" font-weight="800" letter-spacing="0.4">__LOC__</text>`,
+  // Love (pink)
+  `<rect x="2" y="2" width="58" height="70" rx="3" fill="#fff" stroke="#d6336c" stroke-width="2" stroke-dasharray="3 2"/>
+   <rect x="6" y="6" width="50" height="62" rx="2" fill="#ffe0ec"/>
+   <text x="31" y="13" font-size="6" text-anchor="middle" fill="#d6336c" font-family="Inter" font-weight="800" letter-spacing="1">WITH LOVE</text>
+   <text x="31" y="40" font-size="22" text-anchor="middle">❤️</text>
+   <line x1="11" y1="50" x2="51" y2="50" stroke="#d6336c" stroke-width="0.7" opacity="0.45"/>
+   <text x="31" y="60" font-size="7" text-anchor="middle" fill="#d6336c" font-family="Inter" font-weight="800" letter-spacing="0.4">__LOC__</text>`,
+  // Worldwide (blue)
+  `<rect x="2" y="2" width="58" height="70" rx="3" fill="#fff" stroke="#1c7ed6" stroke-width="2" stroke-dasharray="3 2"/>
+   <rect x="6" y="6" width="50" height="62" rx="2" fill="#d7ecff"/>
+   <text x="31" y="13" font-size="6" text-anchor="middle" fill="#1c7ed6" font-family="Inter" font-weight="800" letter-spacing="1">WORLDWIDE</text>
+   <text x="31" y="40" font-size="22" text-anchor="middle">🌍</text>
+   <line x1="11" y1="50" x2="51" y2="50" stroke="#1c7ed6" stroke-width="0.7" opacity="0.45"/>
+   <text x="31" y="60" font-size="7" text-anchor="middle" fill="#1c7ed6" font-family="Inter" font-weight="800" letter-spacing="0.4">__LOC__</text>`,
+  // Lucky star (purple)
+  `<rect x="2" y="2" width="58" height="70" rx="3" fill="#fff" stroke="#7048e8" stroke-width="2" stroke-dasharray="3 2"/>
+   <rect x="6" y="6" width="50" height="62" rx="2" fill="#ece4ff"/>
+   <text x="31" y="13" font-size="6" text-anchor="middle" fill="#7048e8" font-family="Inter" font-weight="800" letter-spacing="1">MAKE A WISH</text>
+   <text x="31" y="40" font-size="22" text-anchor="middle">⭐</text>
+   <line x1="11" y1="50" x2="51" y2="50" stroke="#7048e8" stroke-width="0.7" opacity="0.45"/>
+   <text x="31" y="60" font-size="7" text-anchor="middle" fill="#7048e8" font-family="Inter" font-weight="800" letter-spacing="0.4">__LOC__</text>`
+];
+let stampIndex = -1, stampHintShown = false;
+
+function renderStamp(){
+  const loc = escapeHtml((originCity || "Paper Sling").toUpperCase().slice(0, 13));
+  $("stampSvg").innerHTML = STAMP_DESIGNS[stampIndex].replace(/__LOC__/g, loc);
+}
+
+$("wish").addEventListener("input", () => {
+  if($("wish").value.trim().length > 0) {
+    $("stampSlot").classList.add("show");
+    if(!stampHintShown) { stampHintShown = true; mascotSay("Now tap the corner to add a postage stamp! 📮"); }
+  }
+});
+
+$("stampSlot").addEventListener("click", () => {
+  stampIndex = (stampIndex + 1) % STAMP_DESIGNS.length;
+  renderStamp();
+  $("stampSlot").classList.add("stamped");
+});
+
+/* --- PEEK AT GLOBE / REOPEN PAPER --- */
+$("studioClose").addEventListener("click", () => {
+  if(phase !== 0) return;               // only while still writing
+  $("studio").classList.remove("active");
+  $("globe").classList.remove("hidden");
+  $("openPaperBtn").classList.add("show");
+  try { world.controls().autoRotate = true; } catch(e){}
+});
+$("openPaperBtn").addEventListener("click", () => {
+  $("openPaperBtn").classList.remove("show");
+  $("globe").classList.add("hidden");
+  $("studio").classList.add("active");
+});
+
+/* --- GEOLOCATION & GEOGRAPHY --- */
+let origin = { lat: 28.4089, lng: 77.3178 };
+let originCity = "Faridabad", originCountry = "India";
+let satMap, satMarker;
+
 function distKm(la1, lo1, la2, lo2){
   const R=6371, r=x=>x*Math.PI/180;
-  const dLa=r(la2-la1), dLo=r(lo2-lo1);
-  const s=Math.sin(dLa/2)**2 + Math.cos(r(la1))*Math.cos(r(la2))*Math.sin(dLo/2)**2;
+  const s=Math.sin(r(la2-la1)/2)**2 + Math.cos(r(la1))*Math.cos(r(la2))*Math.sin(r(lo2-lo1)/2)**2;
   return 2*R*Math.asin(Math.sqrt(s));
 }
-// Curated world cities (all on land) — landings snap to the nearest one.
+
+// Massively Expanded City List
 const CITIES=[
-  ["Reykjavík","Iceland",64.13,-21.95],["London","UK",51.51,-0.13],["Paris","France",48.86,2.35],
-  ["Madrid","Spain",40.42,-3.70],["Lisbon","Portugal",38.72,-9.14],["Rome","Italy",41.90,12.50],
-  ["Berlin","Germany",52.52,13.40],["Oslo","Norway",59.91,10.75],["Stockholm","Sweden",59.33,18.07],
-  ["Moscow","Russia",55.75,37.62],["Athens","Greece",37.98,23.73],["Istanbul","Türkiye",41.01,28.98],
-  ["Cairo","Egypt",30.04,31.24],["Lagos","Nigeria",6.52,3.38],["Nairobi","Kenya",-1.29,36.82],
-  ["Cape Town","South Africa",-33.92,18.42],["Marrakesh","Morocco",31.63,-7.99],["Addis Ababa","Ethiopia",9.03,38.74],
-  ["Dubai","UAE",25.20,55.27],["Tehran","Iran",35.69,51.39],["Riyadh","Saudi Arabia",24.71,46.68],
-  ["Karachi","Pakistan",24.86,67.01],["Delhi","India",28.61,77.21],["Mumbai","India",19.08,72.88],
-  ["Kolkata","India",22.57,88.36],["Bengaluru","India",12.97,77.59],["Kathmandu","Nepal",27.72,85.32],
-  ["Dhaka","Bangladesh",23.81,90.41],["Bangkok","Thailand",13.76,100.50],["Hanoi","Vietnam",21.03,105.85],
-  ["Singapore","Singapore",1.35,103.82],["Jakarta","Indonesia",-6.21,106.85],["Manila","Philippines",14.60,120.98],
-  ["Beijing","China",39.90,116.41],["Shanghai","China",31.23,121.47],["Hong Kong","China",22.32,114.17],
-  ["Seoul","South Korea",37.57,126.98],["Tokyo","Japan",35.68,139.69],["Kyoto","Japan",35.01,135.77],
-  ["Sydney","Australia",-33.87,151.21],["Melbourne","Australia",-37.81,144.96],["Perth","Australia",-31.95,115.86],
-  ["Auckland","New Zealand",-36.85,174.76],["Queenstown","New Zealand",-45.03,168.66],
-  ["Honolulu","USA",21.31,-157.86],["Anchorage","USA",61.22,-149.90],["Vancouver","Canada",49.28,-123.12],
-  ["Toronto","Canada",43.65,-79.38],["New York","USA",40.71,-74.01],["Chicago","USA",41.88,-87.63],
-  ["Los Angeles","USA",34.05,-118.24],["Mexico City","Mexico",19.43,-99.13],["Havana","Cuba",23.11,-82.37],
-  ["Bogotá","Colombia",4.71,-74.07],["Lima","Peru",-12.05,-77.04],["Santiago","Chile",-33.45,-70.67],
-  ["Buenos Aires","Argentina",-34.60,-58.38],["Rio de Janeiro","Brazil",-22.91,-43.17],["São Paulo","Brazil",-23.55,-46.63],
-  ["Ushuaia","Argentina",-54.80,-68.30],["Reine","Norway",67.93,13.09],["Petra","Jordan",30.33,35.44],
-  ["Tbilisi","Georgia",41.72,44.83],["Almaty","Kazakhstan",43.24,76.89],["Tashkent","Uzbekistan",41.30,69.24]
-].map(c=>({city:c[0],country:c[1],lat:c[2],lng:c[3]}));
+  {city:'London',lat:51.51,lng:-0.13},{city:'Paris',lat:48.86,lng:2.35},{city:'New York',lat:40.71,lng:-74.01},
+  {city:'Tokyo',lat:35.68,lng:139.69},{city:'Sydney',lat:-33.87,lng:151.21},{city:'Dubai',lat:25.20,lng:55.27},
+  {city:'Rio de Janeiro',lat:-22.91,lng:-43.17},{city:'Cape Town',lat:-33.92,lng:18.42},{city:'Mumbai',lat:19.08,lng:72.88},
+  {city:'Reykjavík',lat:64.14,lng:-21.92},{city:'Berlin',lat:52.52,lng:13.40},{city:'Rome',lat:41.90,lng:12.49},
+  {city:'Madrid',lat:40.41,lng:-3.70},{city:'Moscow',lat:55.75,lng:37.61},{city:'Cairo',lat:30.04,lng:31.23},
+  {city:'Beijing',lat:39.90,lng:116.40},{city:'Singapore',lat:1.35,lng:103.81},{city:'Delhi',lat:28.61,lng:77.20},
+  {city:'Toronto',lat:43.65,lng:-79.38},{city:'Mexico City',lat:19.43,lng:-99.13},{city:'Buenos Aires',lat:-34.60,lng:-58.38},
+  {city:'Los Angeles',lat:34.05,lng:-118.24},{city:'Chicago',lat:41.88,lng:-87.63},{city:'Houston',lat:29.76,lng:-95.37},
+  {city:'Phoenix',lat:33.45,lng:-112.07},{city:'Philadelphia',lat:39.95,lng:-75.17},{city:'San Antonio',lat:29.42,lng:-98.49},
+  {city:'San Diego',lat:32.72,lng:-117.16},{city:'Dallas',lat:32.78,lng:-96.80},{city:'San Jose',lat:37.34,lng:-121.89},
+  {city:'Austin',lat:30.27,lng:-97.74},{city:'San Francisco',lat:37.77,lng:-122.42},{city:'Seattle',lat:47.61,lng:-122.33},
+  {city:'Denver',lat:39.74,lng:-104.99},{city:'Boston',lat:42.36,lng:-71.06},{city:'Miami',lat:25.76,lng:-80.19},
+  {city:'Atlanta',lat:33.75,lng:-84.39},{city:'Las Vegas',lat:36.17,lng:-115.14},{city:'Portland',lat:45.52,lng:-122.68},
+  {city:'Detroit',lat:42.33,lng:-83.05},{city:'Minneapolis',lat:44.98,lng:-93.27},{city:'New Orleans',lat:29.95,lng:-90.07},
+  {city:'Washington',lat:38.91,lng:-77.04},{city:'Vancouver',lat:49.28,lng:-123.12},{city:'Montreal',lat:45.50,lng:-73.57},
+  {city:'Calgary',lat:51.05,lng:-114.07},{city:'Ottawa',lat:45.42,lng:-75.70},{city:'Edmonton',lat:53.55,lng:-113.49},
+  {city:'Winnipeg',lat:49.90,lng:-97.14},{city:'Quebec City',lat:46.81,lng:-71.21},{city:'Halifax',lat:44.65,lng:-63.58},
+  {city:'Guadalajara',lat:20.66,lng:-103.35},{city:'Monterrey',lat:25.69,lng:-100.32},{city:'Tijuana',lat:32.51,lng:-117.04},
+  {city:'Cancún',lat:21.16,lng:-86.85},{city:'Havana',lat:23.11,lng:-82.37},{city:'Kingston',lat:17.97,lng:-76.79},
+  {city:'Santo Domingo',lat:18.49,lng:-69.93},{city:'San Juan',lat:18.47,lng:-66.11},{city:'Panama City',lat:8.98,lng:-79.52},
+  {city:'San José',lat:9.93,lng:-84.09},{city:'Guatemala City',lat:14.63,lng:-90.51},{city:'San Salvador',lat:13.69,lng:-89.22},
+  {city:'Tegucigalpa',lat:14.07,lng:-87.19},{city:'Managua',lat:12.13,lng:-86.25},{city:'Bogotá',lat:4.71,lng:-74.07},
+  {city:'Medellín',lat:6.24,lng:-75.58},{city:'Cali',lat:3.45,lng:-76.53},{city:'Lima',lat:-12.05,lng:-77.04},
+  {city:'Quito',lat:-0.18,lng:-78.47},{city:'Guayaquil',lat:-2.17,lng:-79.92},{city:'Caracas',lat:10.48,lng:-66.90},
+  {city:'La Paz',lat:-16.50,lng:-68.15},{city:'Santiago',lat:-33.45,lng:-70.67},{city:'Santa Cruz',lat:-17.78,lng:-63.18},
+  {city:'Asunción',lat:-25.30,lng:-57.64},{city:'Montevideo',lat:-34.90,lng:-56.16},{city:'Brasília',lat:-15.79,lng:-47.88},
+  {city:'São Paulo',lat:-23.55,lng:-46.63},{city:'Salvador',lat:-12.97,lng:-38.51},{city:'Fortaleza',lat:-3.73,lng:-38.52},
+  {city:'Belo Horizonte',lat:-19.92,lng:-43.94},{city:'Manaus',lat:-3.12,lng:-60.02},{city:'Recife',lat:-8.05,lng:-34.88},
+  {city:'Curitiba',lat:-25.43,lng:-49.27},{city:'Porto Alegre',lat:-30.03,lng:-51.23},{city:'Lisbon',lat:38.72,lng:-9.14},
+  {city:'Porto',lat:41.15,lng:-8.61},{city:'Barcelona',lat:41.39,lng:2.17},{city:'Valencia',lat:39.47,lng:-0.38},
+  {city:'Seville',lat:37.39,lng:-5.99},{city:'Bilbao',lat:43.26,lng:-2.93},{city:'Amsterdam',lat:52.37,lng:4.90},
+  {city:'Rotterdam',lat:51.92,lng:4.48},{city:'Brussels',lat:50.85,lng:4.35},{city:'Antwerp',lat:51.22,lng:4.40},
+  {city:'Luxembourg',lat:49.61,lng:6.13},{city:'Zurich',lat:47.37,lng:8.54},{city:'Geneva',lat:46.20,lng:6.14},
+  {city:'Bern',lat:46.95,lng:7.45},{city:'Vienna',lat:48.21,lng:16.37},{city:'Salzburg',lat:47.81,lng:13.05},
+  {city:'Munich',lat:48.14,lng:11.58},{city:'Frankfurt',lat:50.11,lng:8.68},{city:'Hamburg',lat:53.55,lng:9.99},
+  {city:'Cologne',lat:50.94,lng:6.96},{city:'Stuttgart',lat:48.78,lng:9.18},{city:'Düsseldorf',lat:51.23,lng:6.78},
+  {city:'Leipzig',lat:51.34,lng:12.37},{city:'Dresden',lat:51.05,lng:13.74},{city:'Copenhagen',lat:55.68,lng:12.57},
+  {city:'Aarhus',lat:56.16,lng:10.20},{city:'Stockholm',lat:59.33,lng:18.07},{city:'Gothenburg',lat:57.71,lng:11.97},
+  {city:'Malmö',lat:55.60,lng:13.00},{city:'Oslo',lat:59.91,lng:10.75},{city:'Bergen',lat:60.39,lng:5.32},
+  {city:'Helsinki',lat:60.17,lng:24.94},{city:'Tampere',lat:61.50,lng:23.79},{city:'Tallinn',lat:59.44,lng:24.75},
+  {city:'Riga',lat:56.95,lng:24.11},{city:'Vilnius',lat:54.69,lng:25.28},{city:'Warsaw',lat:52.23,lng:21.01},
+  {city:'Kraków',lat:50.06,lng:19.95},{city:'Wrocław',lat:51.11,lng:17.04},{city:'Gdańsk',lat:54.35,lng:18.65},
+  {city:'Poznań',lat:52.41,lng:16.93},{city:'Prague',lat:50.08,lng:14.44},{city:'Brno',lat:49.20,lng:16.61},
+  {city:'Bratislava',lat:48.15,lng:17.11},{city:'Budapest',lat:47.50,lng:19.04},{city:'Debrecen',lat:47.53,lng:21.63},
+  {city:'Bucharest',lat:44.43,lng:26.10},{city:'Cluj-Napoca',lat:46.77,lng:23.60},{city:'Sofia',lat:42.70,lng:23.32},
+  {city:'Plovdiv',lat:42.14,lng:24.75},{city:'Belgrade',lat:44.79,lng:20.45},{city:'Zagreb',lat:45.81,lng:15.98},
+  {city:'Split',lat:43.51,lng:16.44},{city:'Ljubljana',lat:46.06,lng:14.51},{city:'Sarajevo',lat:43.86,lng:18.41},
+  {city:'Skopje',lat:41.99,lng:21.43},{city:'Podgorica',lat:42.44,lng:19.26},{city:'Tirana',lat:41.33,lng:19.82},
+  {city:'Athens',lat:37.98,lng:23.73},{city:'Thessaloniki',lat:40.64,lng:22.94},{city:'Istanbul',lat:41.01,lng:28.98},
+  {city:'Ankara',lat:39.93,lng:32.86},{city:'Izmir',lat:38.42,lng:27.14},{city:'Antalya',lat:36.90,lng:30.71},
+  {city:'Kyiv',lat:50.45,lng:30.52},{city:'Kharkiv',lat:49.99,lng:36.23},{city:'Odesa',lat:46.48,lng:30.72},
+  {city:'Lviv',lat:49.84,lng:24.03},{city:'Minsk',lat:53.90,lng:27.57},{city:'Saint Petersburg',lat:59.93,lng:30.34},
+  {city:'Novosibirsk',lat:55.01,lng:82.93},{city:'Yekaterinburg',lat:56.84,lng:60.61},{city:'Kazan',lat:55.79,lng:49.12},
+  {city:'Vladivostok',lat:43.12,lng:131.89},{city:'Dublin',lat:53.35,lng:-6.26},{city:'Cork',lat:51.90,lng:-8.47},
+  {city:'Edinburgh',lat:55.95,lng:-3.19},{city:'Glasgow',lat:55.86,lng:-4.25},{city:'Manchester',lat:53.48,lng:-2.24},
+  {city:'Birmingham',lat:52.49,lng:-1.89},{city:'Liverpool',lat:53.41,lng:-2.99},{city:'Leeds',lat:53.80,lng:-1.55},
+  {city:'Cardiff',lat:51.48,lng:-3.18},{city:'Belfast',lat:54.60,lng:-5.93},{city:'Milan',lat:45.46,lng:9.19},
+  {city:'Naples',lat:40.85,lng:14.27},{city:'Turin',lat:45.07,lng:7.69},{city:'Venice',lat:45.44,lng:12.32},
+  {city:'Florence',lat:43.77,lng:11.26},{city:'Bologna',lat:44.49,lng:11.34},{city:'Palermo',lat:38.12,lng:13.36},
+  {city:'Genoa',lat:44.41,lng:8.93},{city:'Lyon',lat:45.76,lng:4.83},{city:'Marseille',lat:43.30,lng:5.37},
+  {city:'Toulouse',lat:43.60,lng:1.44},{city:'Nice',lat:43.70,lng:7.27},{city:'Nantes',lat:47.22,lng:-1.55},
+  {city:'Strasbourg',lat:48.58,lng:7.75},{city:'Bordeaux',lat:44.84,lng:-0.58},{city:'Lille',lat:50.63,lng:3.06},
+  {city:'Casablanca',lat:33.57,lng:-7.59},{city:'Rabat',lat:34.02,lng:-6.83},{city:'Marrakech',lat:31.63,lng:-7.99},
+  {city:'Tangier',lat:35.76,lng:-5.83},{city:'Algiers',lat:36.75,lng:3.06},{city:'Oran',lat:35.70,lng:-0.63},
+  {city:'Tunis',lat:36.81,lng:10.18},{city:'Tripoli',lat:32.89,lng:13.19},{city:'Alexandria',lat:31.20,lng:29.92},
+  {city:'Giza',lat:30.01,lng:31.21},{city:'Khartoum',lat:15.50,lng:32.56},{city:'Addis Ababa',lat:9.01,lng:38.76},
+  {city:'Nairobi',lat:-1.29,lng:36.82},{city:'Mombasa',lat:-4.04,lng:39.67},{city:'Dar es Salaam',lat:-6.79,lng:39.21},
+  {city:'Kampala',lat:0.35,lng:32.58},{city:'Kigali',lat:-1.94,lng:30.06},{city:'Lagos',lat:6.52,lng:3.38},
+  {city:'Abuja',lat:9.06,lng:7.50},{city:'Kano',lat:12.00,lng:8.52},{city:'Accra',lat:5.60,lng:-0.19},
+  {city:'Abidjan',lat:5.36,lng:-4.01},{city:'Dakar',lat:14.72,lng:-17.47},{city:'Bamako',lat:12.64,lng:-8.00},
+  {city:'Ouagadougou',lat:12.37,lng:-1.53},{city:'Niamey',lat:13.51,lng:2.11},{city:'Kinshasa',lat:-4.32,lng:15.31},
+  {city:'Brazzaville',lat:-4.27,lng:15.27},{city:'Luanda',lat:-8.84,lng:13.23},{city:'Lusaka',lat:-15.42,lng:28.28},
+  {city:'Harare',lat:-17.83,lng:31.05},{city:'Maputo',lat:-25.97,lng:32.57},{city:'Gaborone',lat:-24.65,lng:25.91},
+  {city:'Windhoek',lat:-22.56,lng:17.08},{city:'Johannesburg',lat:-26.20,lng:28.05},{city:'Pretoria',lat:-25.75,lng:28.19},
+  {city:'Durban',lat:-29.86,lng:31.03},{city:'Port Elizabeth',lat:-33.96,lng:25.61},{city:'Antananarivo',lat:-18.88,lng:47.51},
+  {city:'Port Louis',lat:-20.16,lng:57.50},{city:'Riyadh',lat:24.71,lng:46.68},{city:'Jeddah',lat:21.49,lng:39.19},
+  {city:'Mecca',lat:21.39,lng:39.86},{city:'Doha',lat:25.29,lng:51.53},{city:'Abu Dhabi',lat:24.45,lng:54.38},
+  {city:'Kuwait City',lat:29.38,lng:47.99},{city:'Manama',lat:26.23,lng:50.59},{city:'Muscat',lat:23.59,lng:58.41},
+  {city:'Amman',lat:31.96,lng:35.91},{city:'Beirut',lat:33.89,lng:35.50},{city:'Damascus',lat:33.51,lng:36.29},
+  {city:'Baghdad',lat:33.31,lng:44.36},{city:'Tehran',lat:35.69,lng:51.39},{city:'Isfahan',lat:32.65,lng:51.67},
+  {city:'Mashhad',lat:36.30,lng:59.61},{city:'Jerusalem',lat:31.77,lng:35.21},{city:'Tel Aviv',lat:32.08,lng:34.78},
+  {city:'Sanaa',lat:15.37,lng:44.19},{city:'Kabul',lat:34.53,lng:69.17},{city:'Islamabad',lat:33.69,lng:73.06},
+  {city:'Karachi',lat:24.86,lng:67.01},{city:'Lahore',lat:31.55,lng:74.34},{city:'Faisalabad',lat:31.42,lng:73.08},
+  {city:'Dhaka',lat:23.81,lng:90.41},{city:'Chittagong',lat:22.36,lng:91.78},{city:'Kathmandu',lat:27.72,lng:85.32},
+  {city:'Colombo',lat:6.93,lng:79.85},{city:'Thimphu',lat:27.47,lng:89.64},{city:'Bangalore',lat:12.97,lng:77.59},
+  {city:'Hyderabad',lat:17.39,lng:78.49},{city:'Chennai',lat:13.08,lng:80.27},{city:'Kolkata',lat:22.57,lng:88.36},
+  {city:'Pune',lat:18.52,lng:73.86},{city:'Ahmedabad',lat:23.03,lng:72.58},{city:'Jaipur',lat:26.91,lng:75.79},
+  {city:'Lucknow',lat:26.85,lng:80.95},{city:'Kanpur',lat:26.45,lng:80.33},{city:'Nagpur',lat:21.15,lng:79.09},
+  {city:'Surat',lat:21.17,lng:72.83},{city:'Bhopal',lat:23.26,lng:77.41},{city:'Patna',lat:25.59,lng:85.14},
+  {city:'Kochi',lat:9.93,lng:76.27},{city:'Bangkok',lat:13.76,lng:100.50},{city:'Chiang Mai',lat:18.79,lng:98.99},
+  {city:'Phuket',lat:7.88,lng:98.39},{city:'Hanoi',lat:21.03,lng:105.85},{city:'Ho Chi Minh City',lat:10.82,lng:106.63},
+  {city:'Da Nang',lat:16.05,lng:108.20},{city:'Phnom Penh',lat:11.56,lng:104.92},{city:'Vientiane',lat:17.97,lng:102.63},
+  {city:'Yangon',lat:16.87,lng:96.20},{city:'Naypyidaw',lat:19.75,lng:96.10},{city:'Kuala Lumpur',lat:3.14,lng:101.69},
+  {city:'Penang',lat:5.41,lng:100.33},{city:'Jakarta',lat:-6.21,lng:106.85},{city:'Surabaya',lat:-7.26,lng:112.75},
+  {city:'Bandung',lat:-6.91,lng:107.61},{city:'Medan',lat:3.60,lng:98.67},{city:'Bali',lat:-8.34,lng:115.09},
+  {city:'Manila',lat:14.60,lng:120.98},{city:'Cebu',lat:10.32,lng:123.89},{city:'Davao',lat:7.07,lng:125.61},
+  {city:'Brunei',lat:4.90,lng:114.94},{city:'Seoul',lat:37.57,lng:126.98},{city:'Busan',lat:35.18,lng:129.08},
+  {city:'Incheon',lat:37.46,lng:126.71},{city:'Daegu',lat:35.87,lng:128.60},{city:'Pyongyang',lat:39.04,lng:125.76},
+  {city:'Shanghai',lat:31.23,lng:121.47},{city:'Guangzhou',lat:23.13,lng:113.26},{city:'Shenzhen',lat:22.54,lng:114.06},
+  {city:'Chengdu',lat:30.66,lng:104.07},{city:'Wuhan',lat:30.59,lng:114.31},{city:"Xi'an",lat:34.34,lng:108.94},
+  {city:'Hangzhou',lat:30.27,lng:120.15},{city:'Chongqing',lat:29.56,lng:106.55},{city:'Nanjing',lat:32.06,lng:118.80},
+  {city:'Tianjin',lat:39.34,lng:117.36},{city:'Hong Kong',lat:22.32,lng:114.17},{city:'Macau',lat:22.20,lng:113.54},
+  {city:'Taipei',lat:25.03,lng:121.57},{city:'Kaohsiung',lat:22.63,lng:120.30},{city:'Osaka',lat:34.69,lng:135.50},
+  {city:'Kyoto',lat:35.01,lng:135.77},{city:'Yokohama',lat:35.44,lng:139.64},{city:'Nagoya',lat:35.18,lng:136.91},
+  {city:'Sapporo',lat:43.06,lng:141.35},{city:'Fukuoka',lat:33.59,lng:130.40},{city:'Kobe',lat:34.69,lng:135.20},
+  {city:'Sendai',lat:38.27,lng:140.87},{city:'Ulaanbaatar',lat:47.89,lng:106.91},{city:'Almaty',lat:43.24,lng:76.95},
+  {city:'Astana',lat:51.17,lng:71.43},{city:'Tashkent',lat:41.31,lng:69.24},{city:'Bishkek',lat:42.87,lng:74.59},
+  {city:'Dushanbe',lat:38.56,lng:68.79},{city:'Ashgabat',lat:37.95,lng:58.38},{city:'Baku',lat:40.41,lng:49.87},
+  {city:'Tbilisi',lat:41.72,lng:44.79},{city:'Yerevan',lat:40.18,lng:44.51},{city:'Melbourne',lat:-37.81,lng:144.96},
+  {city:'Brisbane',lat:-27.47,lng:153.03},{city:'Perth',lat:-31.95,lng:115.86},{city:'Adelaide',lat:-34.93,lng:138.60},
+  {city:'Gold Coast',lat:-28.02,lng:153.40},{city:'Canberra',lat:-35.28,lng:149.13},{city:'Hobart',lat:-42.88,lng:147.33},
+  {city:'Darwin',lat:-12.46,lng:130.84},{city:'Auckland',lat:-36.85,lng:174.76},{city:'Wellington',lat:-41.29,lng:174.78},
+  {city:'Christchurch',lat:-43.53,lng:172.64},{city:'Suva',lat:-18.14,lng:178.44},{city:'Port Moresby',lat:-9.44,lng:147.18},
+  {city:'Honolulu',lat:21.31,lng:-157.86},{city:'Anchorage',lat:61.22,lng:-149.90},{city:'Nuuk',lat:64.18,lng:-51.69},
+  {city:'Bridgetown',lat:13.11,lng:-59.62},{city:'Nassau',lat:25.06,lng:-77.34},{city:'Paramaribo',lat:5.87,lng:-55.17},
+  {city:'Georgetown',lat:6.80,lng:-58.16},{city:'Cayenne',lat:4.92,lng:-52.33},{city:'Sacramento',lat:38.58,lng:-121.49},
+  {city:'Kansas City',lat:39.10,lng:-94.58},{city:'St. Louis',lat:38.63,lng:-90.20},{city:'Cleveland',lat:41.50,lng:-81.69},
+  {city:'Pittsburgh',lat:40.44,lng:-79.99},{city:'Cincinnati',lat:39.10,lng:-84.51},{city:'Columbus',lat:39.96,lng:-82.99},
+  {city:'Indianapolis',lat:39.77,lng:-86.16},{city:'Milwaukee',lat:43.04,lng:-87.91},{city:'Charlotte',lat:35.23,lng:-80.84},
+  {city:'Raleigh',lat:35.78,lng:-78.64},{city:'Nashville',lat:36.16,lng:-86.78},{city:'Memphis',lat:35.15,lng:-90.05},
+  {city:'Oklahoma City',lat:35.47,lng:-97.52},{city:'Tucson',lat:32.22,lng:-110.97},{city:'Albuquerque',lat:35.08,lng:-106.65},
+  {city:'Salt Lake City',lat:40.76,lng:-111.89},{city:'El Paso',lat:31.76,lng:-106.49},{city:'Fresno',lat:36.74,lng:-119.79},
+  {city:'Tampa',lat:27.95,lng:-82.46},{city:'Orlando',lat:28.54,lng:-81.38},{city:'Jacksonville',lat:30.33,lng:-81.66},
+  {city:'Buffalo',lat:42.89,lng:-78.88},{city:'Rochester',lat:43.16,lng:-77.61},{city:'Richmond',lat:37.54,lng:-77.44},
+  {city:'Norfolk',lat:36.85,lng:-76.29},{city:'Louisville',lat:38.25,lng:-85.76},{city:'Baltimore',lat:39.29,lng:-76.61},
+  {city:'Hartford',lat:41.76,lng:-72.69},{city:'Providence',lat:41.82,lng:-71.41},{city:'Albany',lat:42.65,lng:-73.76},
+  {city:'Omaha',lat:41.26,lng:-95.93},{city:'Tulsa',lat:36.15,lng:-95.99},{city:'Wichita',lat:37.69,lng:-97.34},
+  {city:'Boise',lat:43.62,lng:-116.21},{city:'Spokane',lat:47.66,lng:-117.43},{city:'Reno',lat:39.53,lng:-119.81},
+  {city:'Honiara',lat:-9.43,lng:159.96},{city:'Apia',lat:-13.83,lng:-171.77},{city:'Nukuʻalofa',lat:-21.14,lng:-175.20},
+  {city:'Palikir',lat:6.92,lng:158.16},{city:'Bujumbura',lat:-3.36,lng:29.36},{city:'Djibouti',lat:11.59,lng:43.15},
+  {city:'Mogadishu',lat:2.04,lng:45.34},{city:'Asmara',lat:15.34,lng:38.93},{city:'Juba',lat:4.85,lng:31.58},
+  {city:'Bangui',lat:4.39,lng:18.56},{city:'Libreville',lat:0.42,lng:9.47},{city:'Malabo',lat:3.75,lng:8.78},
+  {city:'Yaoundé',lat:3.85,lng:11.50},{city:'Douala',lat:4.05,lng:9.77},{city:'Lomé',lat:6.13,lng:1.22},
+  {city:'Cotonou',lat:6.37,lng:2.43},{city:'Porto-Novo',lat:6.50,lng:2.62},{city:'Freetown',lat:8.48,lng:-13.23},
+  {city:'Monrovia',lat:6.30,lng:-10.80},{city:'Conakry',lat:9.64,lng:-13.58},{city:'Bissau',lat:11.86,lng:-15.60},
+  {city:'Banjul',lat:13.45,lng:-16.58},{city:'Nouakchott',lat:18.08,lng:-15.98},{city:'Praia',lat:14.93,lng:-23.51},
+  {city:"N'Djamena",lat:12.11,lng:15.05},{city:'Mbabane',lat:-26.32,lng:31.13},{city:'Maseru',lat:-29.31,lng:27.48},
+  {city:'Moroni',lat:-11.70,lng:43.26},{city:'Victoria',lat:-4.62,lng:55.45},{city:'Funafuti',lat:-8.52,lng:179.20},
+  {city:'Tarawa',lat:1.33,lng:172.98},{city:'Majuro',lat:7.12,lng:171.18},{city:'Yaren',lat:-0.55,lng:166.92},
+  {city:'Ngerulmud',lat:7.50,lng:134.62},{city:'Pago Pago',lat:-14.28,lng:-170.70},{city:'Avarua',lat:-21.21,lng:-159.78},
+  {city:'Papeete',lat:-17.54,lng:-149.57},{city:'Nouméa',lat:-22.27,lng:166.45},{city:'Port Vila',lat:-17.73,lng:168.32},
+  {city:'Stanley',lat:-51.69,lng:-57.85},{city:'Ushuaia',lat:-54.81,lng:-68.31},{city:'Punta Arenas',lat:-53.16,lng:-70.91},
+  {city:'Tromsø',lat:69.65,lng:18.96},{city:'Murmansk',lat:68.97,lng:33.09},{city:'Longyearbyen',lat:78.22,lng:15.65},
+  {city:'Whitehorse',lat:60.72,lng:-135.06},{city:'Yellowknife',lat:62.45,lng:-114.37},{city:'Iqaluit',lat:63.75,lng:-68.52},
+  {city:'Fairbanks',lat:64.84,lng:-147.72},{city:'Kiruna',lat:67.86,lng:20.23},{city:'Rovaniemi',lat:66.50,lng:25.73},
+  {city:'Dunedin',lat:-45.87,lng:170.50},{city:'Queenstown',lat:-45.03,lng:168.66},{city:'Hamilton',lat:-37.79,lng:175.28},
+  {city:'Tauranga',lat:-37.69,lng:176.17},{city:'Mendoza',lat:-32.89,lng:-68.85},{city:'Córdoba',lat:-31.42,lng:-64.18},
+  {city:'Rosario',lat:-32.95,lng:-60.64},{city:'Valparaíso',lat:-33.05,lng:-71.62},{city:'Concepción',lat:-36.83,lng:-73.05},
+  {city:'Arequipa',lat:-16.41,lng:-71.54},{city:'Cusco',lat:-13.53,lng:-71.97},{city:'Trujillo',lat:-8.11,lng:-79.03},
+  {city:'Maracaibo',lat:10.65,lng:-71.65},{city:'Valencia (VE)',lat:10.16,lng:-68.01},{city:'Barranquilla',lat:10.97,lng:-74.80},
+  {city:'Cartagena',lat:10.39,lng:-75.51},{city:'Cúcuta',lat:7.89,lng:-72.50},{city:'Florianópolis',lat:-27.59,lng:-48.55},
+  {city:'Belém',lat:-1.46,lng:-48.50},{city:'Goiânia',lat:-16.69,lng:-49.26},{city:'Campinas',lat:-22.91,lng:-47.06},
+  {city:'Natal',lat:-5.79,lng:-35.21},{city:'João Pessoa',lat:-7.12,lng:-34.86}
+];
+
 function nearestCity(lat,lng){
   let best=CITIES[0], bd=Infinity;
   for(const c of CITIES){ const d=distKm(lat,lng,c.lat,c.lng); if(d<bd){ bd=d; best=c; } }
   return best;
 }
 
-/* ---------- stamp generator ---------- */
-function stampSVG(city,country,size,colorVar){
-  const col=colorVar||"var(--ink-stamp)";
-  const date=new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}).toUpperCase();
-  const rot=(Math.random()*16-8).toFixed(1);
-  return `<svg viewBox="0 0 120 120" width="${size}" height="${size}" style="transform:rotate(${rot}deg)">
-    <g fill="none" stroke="${col}" stroke-width="2.4" opacity="0.85">
-      <circle cx="60" cy="60" r="52"/><circle cx="60" cy="60" r="44"/>
-    </g>
-    <g fill="${col}" opacity="0.9">
-      ${Array.from({length:28}).map((_,i)=>{const a=i/28*Math.PI*2;
-        return `<circle cx="${(60+48*Math.cos(a)).toFixed(1)}" cy="${(60+48*Math.sin(a)).toFixed(1)}" r="1.1"/>`}).join("")}
-    </g>
-    <g text-anchor="middle" font-family="'Courier Prime',monospace" fill="${col}" opacity="0.95">
-      <text x="60" y="42" font-size="9" letter-spacing="1.5" font-weight="700">${(country||'').toUpperCase()}</text>
-      <text x="60" y="62" font-size="11" font-weight="700" letter-spacing="0.5">${city.toUpperCase()}</text>
-      <line x1="30" y1="72" x2="90" y2="72" stroke="${col}" stroke-width="1.4" opacity="0.6"/>
-      <text x="60" y="82" font-size="7.5" letter-spacing="1" font-weight="700">PAPER SLING</text>
-      <text x="60" y="96" font-size="8" letter-spacing="1" font-weight="700">${date}</text>
-    </g>
-  </svg>`;
+const world=Globe()($("globe")).globeImageUrl("https://unpkg.com/three-globe/example/img/earth-night.jpg").backgroundColor("rgba(0,0,0,0)")
+  .atmosphereColor("#ffcf8a").atmosphereAltitude(0.18).arcColor(()=>["rgba(255,205,130,.95)","rgba(255,140,60,.2)"])
+  .arcDashLength(0.45).arcDashGap(1.4).arcDashAnimateTime(2200).arcStroke(0.6);
+world.controls().autoRotate=true; world.controls().enableZoom=false;
+world.pointOfView({lat: origin.lat, lng: origin.lng, altitude: 2.2}, 0);
+
+// Glowing hearts pinned on the globe wherever a sling has landed (live from Firebase).
+world.htmlElementsData([])
+  .htmlLat(d => d.lat).htmlLng(d => d.lng).htmlAltitude(0.01)
+  .htmlElement(() => {
+    const el = document.createElement('div');
+    el.className = 'globe-heart';
+    el.innerHTML = '❤';
+    return el;
+  });
+
+/* --- GLOBE SKINS / THEMES --- */
+const GLOBE_THEMES = [
+  { name:"Night",  img:"earth-night.jpg",       atmo:"#ffcf8a" },
+  { name:"Day",    img:"earth-day.jpg",         atmo:"#8ecbff" },
+  { name:"Marble", img:"earth-blue-marble.jpg", atmo:"#a9e0ff" },
+  { name:"Noir",   img:"earth-dark.jpg",        atmo:"#ff8a5c" }
+];
+let globeThemeIdx = 0;
+function cycleGlobeTheme(){
+  globeThemeIdx = (globeThemeIdx + 1) % GLOBE_THEMES.length;
+  const t = GLOBE_THEMES[globeThemeIdx];
+  world.globeImageUrl("https://unpkg.com/three-globe/example/img/" + t.img).atmosphereColor(t.atmo);
+  const btn = $("globeThemeBtn"); if(btn) btn.innerHTML = "🌐 " + t.name;
+  mascotSay("Globe skin → " + t.name);
 }
 
-/* ---------- gamified state & physics ---------- */
-// Default origin (used until/unless the browser shares a precise location).
-let origin = { lat: 28.4089, lng: 77.3178 };
-let originCity = "Faridabad";
-let originCountry = "India";
-
-let phase = 0, busy = false;
-let windFactor = 350;   // km of distance per unit of strength, randomised each round (200–500)
-let streak = 0, lastThrow = 0, stampCount = Number(localStorage.getItem("ps_stamps")||0);
-let audioOn = false, actx = null;
-const tierColors={Common:"var(--ink-stamp2)",Uncommon:"#2f8c5d",Rare:"#2f5d8c",Legendary:"#b6442f",Mythic:"#8a4fb6"};
-
-/* ---------- leaflet setup ---------- */
-let satMap, satMarker;
 function initLeaflet() {
   if (satMap) return;
   satMap = L.map('satellite-map', { zoomControl: false, attributionControl: false }).setView([0,0], 2);
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-    maxZoom: 18, attribution: 'Tiles &copy; Esri'
-  }).addTo(satMap);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18 }).addTo(satMap);
 }
 
-/* ---------- globe ---------- */
-const NIGHT="https://unpkg.com/three-globe@2.31.0/example/img/earth-night.jpg";
-const arcs=[], planes=[];
-
-// Every saved wish becomes a clickable pin. Seed a few so the globe isn't empty offline.
-let messages = [];
-const SEED_MESSAGES = [
-  {lat:48.86,lng:2.35,  wish:"keep the porch light on",        fromCity:"Tokyo",   toCity:"Paris"},
-  {lat:40.71,lng:-74.01,wish:"may your coffee always be warm",fromCity:"Lisbon",  toCity:"New York"},
-  {lat:-33.92,lng:18.42,wish:"one day, the northern lights",  fromCity:"Cairo",   toCity:"Cape Town"},
-  {lat:35.68,lng:139.69,wish:"safe travels, whoever you are", fromCity:"Sydney",  toCity:"Tokyo"},
-  {lat:19.43,lng:-99.13,wish:"someone is thinking of you",    fromCity:"Bogotá",  toCity:"Mexico City"}
-];
-
-function makePin(d){
-  const el=document.createElement("div");
-  el.className="globe-pin";
-  el.innerHTML=`<div class="ring"></div><div class="dot"></div><div class="tag">✉️</div>`;
-  el.title=(d.wish||"a wish");
-  el.addEventListener("click", ev => { ev.stopPropagation(); openMessageOnMap(d); });
-  return el;
-}
-// Render markers on BOTH layers: a glowing point (always reliable) + a fancy ✉️ html pin.
-function renderMarkers(){
-  const data=[...messages];
-  world.pointsData(data);
-  world.htmlElementsData(data);
-}
-
-const world=Globe()($("globe"))
-  .globeImageUrl(NIGHT).backgroundColor("rgba(0,0,0,0)")
-  .atmosphereColor("#ffcf8a").atmosphereAltitude(0.18)
-  .arcColor(()=>["rgba(255,205,130,.95)","rgba(255,140,60,.2)"])
-  .arcDashLength(0.45).arcDashGap(1.4).arcDashAnimateTime(2200).arcStroke(0.6).arcAltitudeAutoScale(0.5)
-  .pointsData(messages).pointLat("lat").pointLng("lng").pointColor(()=>"#ffce82")
-  .pointAltitude(0.01).pointRadius(0.45).pointsMerge(false)
-  .onPointClick(d=>openMessageOnMap(d))
-  .htmlElementsData(messages).htmlLat(d=>d.lat).htmlLng(d=>d.lng).htmlAltitude(0.012).htmlElement(makePin);
-world.controls().autoRotate=true; world.controls().autoRotateSpeed=1.2;
-world.controls().enableZoom=false;
-world.pointOfView({lat: origin.lat, lng: origin.lng, altitude: 2.2}, 0);
-addEventListener("resize", () => world.width(innerWidth).height(innerHeight));
-world.width(innerWidth).height(innerHeight);
-
-/* ---------- audio ---------- */
-function chime(f=520,d=.5,t="sine",v=.12){
-  if(!audioOn)return; actx=actx||new(window.AudioContext||window.webkitAudioContext)();
-  const o=actx.createOscillator(),g=actx.createGain();o.type=t;o.frequency.value=f;
-  o.connect(g);g.connect(actx.destination);g.gain.setValueAtTime(0,actx.currentTime);
-  g.gain.linearRampToValueAtTime(v,actx.currentTime+.05);
-  g.gain.exponentialRampToValueAtTime(.0001,actx.currentTime+d);o.start();o.stop(actx.currentTime+d);
-}
-
-let stretchOsc, stretchGain;
-function startStretch() {
-  if(!audioOn) return; actx=actx||new(window.AudioContext||window.webkitAudioContext)();
-  stretchOsc = actx.createOscillator(); stretchOsc.type = "sawtooth";
-  stretchOsc.frequency.setValueAtTime(40, actx.currentTime);
-  stretchOsc.frequency.linearRampToValueAtTime(140, actx.currentTime + 1.2);
-  const filt = actx.createBiquadFilter(); filt.type = "lowpass"; filt.frequency.value = 400;
-  stretchGain = actx.createGain(); stretchGain.gain.setValueAtTime(0, actx.currentTime);
-  stretchGain.gain.linearRampToValueAtTime(0.15, actx.currentTime + 0.1);
-  stretchOsc.connect(filt); filt.connect(stretchGain); stretchGain.connect(actx.destination);
-  stretchOsc.start();
-}
-function stopStretch() {
-  if(stretchGain) {
-    stretchGain.gain.linearRampToValueAtTime(0.01, actx.currentTime + 0.1);
-    setTimeout(()=>stretchOsc && stretchOsc.stop(), 100); stretchGain = null;
+// GET USER LOCATION
+function fetchUserLocation() {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(async (position) => {
+      origin.lat = position.coords.latitude;
+      origin.lng = position.coords.longitude;
+      
+      try {
+        const response = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${origin.lat}&longitude=${origin.lng}&localityLanguage=en`);
+        const data = await response.json();
+        originCity = data.city || data.locality || "Unknown City";
+        originCountry = data.countryName || "Unknown Country";
+      } catch (err) {
+        console.warn("Reverse geocode failed", err);
+      }
+      
+      $("from").innerHTML = `writing from <b>${originCity}, ${originCountry}</b>`;
+      world.pointOfView({lat: origin.lat, lng: origin.lng, altitude: 2.2}, 1000);
+      
+    }, (error) => {
+      console.warn("Geolocation denied or failed. Using defaults.", error);
+      $("from").innerHTML = `writing from <b>${originCity}, ${originCountry}</b>`;
+    });
+  } else {
+    $("from").innerHTML = `writing from <b>${originCity}, ${originCountry}</b>`;
   }
 }
-function playSnap() {
-  if(!audioOn) return; actx=actx||new(window.AudioContext||window.webkitAudioContext)();
-  const len = actx.sampleRate * 0.1; const buf = actx.createBuffer(1, len, actx.sampleRate);
-  const data = buf.getChannelData(0); for(let i=0;i<len;i++) data[i] = Math.random()*2-1;
-  const src = actx.createBufferSource(); src.buffer = buf;
-  const gain = actx.createGain(); gain.gain.setValueAtTime(0.6, actx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.01, actx.currentTime + 0.1);
-  const filt = actx.createBiquadFilter(); filt.type = "highpass"; filt.frequency.value = 2000;
-  src.connect(filt); filt.connect(gain); gain.connect(actx.destination); src.start();
+
+function mascotSay(text){
+  const b=$("mascotBubble"); b.textContent=text; b.classList.add("show");
+  setTimeout(()=>b.classList.remove("show"), 5000);
 }
 
-$("sound").onclick=()=>{audioOn=!audioOn;$("sound").classList.toggle("on",audioOn);
-  $("snd-wave").style.display=audioOn?"":"none";$("snd-m1").style.display=audioOn?"none":"";
-  $("snd-m2").style.display=audioOn?"none":"";if(audioOn)chime(660,.3);};
+/* --- BOOT SEQUENCE --- */
+let receiverData = null;
+let puzzleChances = 3;
+let puzzleAnswer = 0;
 
-/* ---------- Reverse Geocode API ---------- */
-async function reverseGeocode(lat, lng){
-  try{
-    const r=await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`,{cache:"no-store"});
-    const d=await r.json();
-    return {city: d.city || d.locality || d.principalSubdivision || "Unknown", country: d.countryName || "The Ocean"};
-  }catch(e){return {city:"Uncharted Waters", country:"The Ocean"};}
-}
-
-/* ---------- Use the visitor's real location (falls back to default) ---------- */
-async function locate(){
-  const gps = await new Promise(res=>{
-    if(!navigator.geolocation) return res(null);
-    navigator.geolocation.getCurrentPosition(
-      p=>res({lat:p.coords.latitude, lng:p.coords.longitude}),
-      ()=>res(null),
-      {enableHighAccuracy:true, timeout:9000, maximumAge:600000});
-  });
-  if(!gps) return; // keep default origin
-  origin = {lat:gps.lat, lng:gps.lng};
-  const g = await reverseGeocode(gps.lat, gps.lng);
-  if(g && g.city && g.city!=="Uncharted Waters" && g.city!=="Unknown"){
-    originCity = g.city; originCountry = g.country;
-  }
-  $("from").innerHTML = `writing from <b>${originCity}, ${originCountry}</b>`;
-  world.pointOfView({lat:origin.lat, lng:origin.lng, altitude:2.2}, 0);
-}
-
-/* ---------- Mascot guide (comic speech bubble + moods) ---------- */
-// Each mood swaps the emoji (always reliable) and a Lottie character (if it loads).
-const MASCOT_MOODS={
-  idle:  {emoji:"🕊️", lottie:"https://assets10.lottiefiles.com/packages/lf20_touohxv0.json"},
-  happy: {emoji:"😄", lottie:"https://assets9.lottiefiles.com/packages/lf20_kkflmtur.json"},
-  wow:   {emoji:"🤩", lottie:"https://assets2.lottiefiles.com/packages/lf20_zrqthn6o.json"},
-  think: {emoji:"🤔", lottie:"https://assets3.lottiefiles.com/packages/lf20_uwR49r.json"},
-  sad:   {emoji:"😅", lottie:"https://assets5.lottiefiles.com/packages/lf20_ydo1amjm.json"}
-};
-function setMascotMood(m){
-  const mood=MASCOT_MOODS[m]||MASCOT_MOODS.idle;
-  const em=document.querySelector("#mascot .avatar-emoji"); if(em) em.textContent=mood.emoji;
-  const lp=document.querySelector("#mascot lottie-player");
-  if(lp && mood.lottie && lp.getAttribute("src")!==mood.lottie) lp.setAttribute("src", mood.lottie);
-}
-let mascotTimer;
-function mascotSay(text, mood, hold=4600){
-  if(typeof mood==="number"){ hold=mood; mood=null; }   // allow mascotSay(text, hold)
-  if(mood) setMascotMood(mood);
-  const b=$("mascotBubble");
-  b.textContent=text; b.classList.add("show");
-  clearTimeout(mascotTimer);
-  if(hold>0) mascotTimer=setTimeout(()=>b.classList.remove("show"), hold);
-}
-
-/* ---------- Celebration lottie (confetti) on great throws ---------- */
-function celebrate(){
-  const c=$("celebrate"); if(!c) return;
-  c.classList.add("show");
-  clearTimeout(c._t); c._t=setTimeout(()=>c.classList.remove("show"), 2600);
-}
-
-/* ---------- Browse a saved wish: zoom globe → satellite map ---------- */
-let browseMarker;
-function openMessageOnMap(d){
-  if(busy) return;
-  world.controls().autoRotate=false;
-  world.pointOfView({lat:d.lat, lng:d.lng, altitude:0.5}, 1000);
-  $("mapBack").classList.add("show");   // show "Back to globe" right away, even while zooming
-  mascotSay("A wish landed here 💌 take a look!", "happy", 4000);
-  setTimeout(()=>{
-    initLeaflet();
-    satMap.setView([d.lat, d.lng], 11);
-    $("satellite-map").classList.add("active");
-    satMap.invalidateSize();
-    showMapMessage(d);
-  }, 1050);
-}
-function showMapMessage(d){
-  if(browseMarker) browseMarker.removeFrom(satMap);
-  const html=`<div class="map-pin">💌</div>`;
-  browseMarker=L.marker([d.lat,d.lng],{icon:L.divIcon({className:'',html,iconSize:[44,44],iconAnchor:[22,22]})}).addTo(satMap);
-  const from=d.fromCity?`<br><span style="opacity:.7;font-size:13px">slung from ${d.fromCity}</span>`:"";
-  browseMarker.bindPopup(`<div style="font-family:'Caveat',cursive;font-size:20px;line-height:1.2;max-width:210px">“${d.wish||'a wish'}”${from}</div>`).openPopup();
-}
-function exitMap(){
-  if(browseMarker){ browseMarker.removeFrom(satMap); browseMarker=null; }
-  $("satellite-map").classList.remove("active");
-  $("mapBack").classList.remove("show");
-  world.pointOfView({lat:origin.lat, lng:origin.lng, altitude:2.2}, 1200); // zoom back out
-  world.controls().autoRotate=true;
-  showWriteFab(true);
-}
-$("mapBack").onclick=exitMap;
-
-/* ---------- Boot Sequence ---------- */
-$("s-stamps").textContent=fmt(stampCount);
-// If a Lottie can't load, hide it so its broken/caution icon never shows
-// (the emoji / SVG fallbacks underneath stay visible).
-function guardLotties(){
-  document.querySelectorAll("lottie-player").forEach(lp=>{
-    const hide=()=>{ lp.style.display="none"; };
-    lp.addEventListener("error", hide);
-    lp.addEventListener("load_error", hide);
-  });
-}
-guardLotties();
-// When the Lottie loader is ready, hide the SVG fallback behind it
-$("loaderLottie") && $("loaderLottie").addEventListener("ready", () => {
-  const fb=$("loaderFallback"); if(fb) fb.style.opacity="0";
-});
 window.onload = () => {
-  // Real location + warm up the satellite map in the background
-  locate();
+  initSpaceCanvas();
+  initLotties();
   initLeaflet();
-  initMailer();
+  fetchUserLocation();
+  loadCommunity();
 
-  // Always show seed pins first so the globe is never empty…
-  messages = [...SEED_MESSAGES];
-  renderMarkers();
-  // …then connect Firebase (if configured) to stream the real wishes on top.
-  initFirebase();
-  if(fbReady){ subscribeSlings(); }
+  const params = new URLSearchParams(window.location.search);
+  if(params.has('surprise')) {
+    try {
+      receiverData = JSON.parse(decodeURIComponent(atob(params.get('surprise'))));
+      triggerReceiverMode(receiverData);
+      return; 
+    } catch(e) {}
+  }
 
-  // 1. Play Loader for 2.5s
-  setTimeout(() => {
-    $("loader").classList.add("hide");
-  }, 2500);
-
-  // 2. Show spinning globe for 3s, then transition to Studio
+  setTimeout(() => $("loader").classList.add("hide"), 1500);
   setTimeout(() => {
     $("globe").classList.add("hidden");
     $("studio").classList.add("active");
-    mascotSay("Hi! I'm Quill 🕊️ Write a little wish to anyone, anywhere on Earth!", "happy", 6000);
-  }, 5500);
+    mascotSay("Hey! Write a surprise note, aim it, and send it to your friend via WhatsApp!");
+  }, 3500);
 };
 
-/* ---------- Paper Studio ---------- */
-let stamped=false;
-// Stamp the paper's corner automatically as soon as there's something written.
-function applyPaperStamp(){
-  const ps=$("paperStamp");
-  ps.innerHTML=stampSVG(originCity,originCountry,72,"var(--ink-stamp)");
-  ps.classList.add("show");
-  const svg=ps.querySelector("svg");
-  if(svg){ const base=svg.style.transform||"";
-    svg.animate([
-      {opacity:0, transform:`${base} scale(1.9) rotate(-18deg)`},
-      {opacity:1, transform:`${base} scale(.92)`, offset:.7},
-      {opacity:1, transform:`${base} scale(1)`}
-    ],{duration:430, easing:"cubic-bezier(.2,.9,.3,1)", fill:"forwards"}); }
-  chime(380,.25,"triangle",.12);
+/* --- RECEIVER PUZZLE MODE --- */
+function triggerReceiverMode(data) {
+  $("loader").classList.add("hide");
+  $("topbar").style.display = "none";
+  mascotSay("A surprise paper plane landed for you!");
+  
+  world.pointOfView({lat: data.la, lng: data.lo, altitude: 0.5}, 2000);
+  
+  setTimeout(() => {
+    satMap.setView([data.la, data.lo], 12);
+    $("satellite-map").classList.add("active");
+    satMap.invalidateSize();
+    
+    L.marker([data.la, data.lo], {
+      icon: L.divIcon({ 
+        className: '', 
+        html: `<div style="width:40px;height:40px;border-radius:40% 60% 50% 50%;background:radial-gradient(circle at 30% 30%, #fff, #d7c5a3);box-shadow:inset -3px -4px 8px rgba(90,60,20,0.3), 0 6px 12px rgba(0,0,0,0.8); display:flex;align-items:center;justify-content:center;font-size:18px;">💌</div>`, 
+        iconSize: [40, 40] 
+      })
+    }).addTo(satMap);
+
+    const n1 = Math.floor(Math.random() * 20) + 5;
+    const n2 = Math.floor(Math.random() * 20) + 5;
+    puzzleAnswer = n1 + n2;
+    
+    $("puz-sender").textContent = data.n;
+    $("puz-question").textContent = `${n1} + ${n2} = ?`;
+    $("puzzle-scrim").classList.add("show");
+  }, 3500);
 }
-$("wish").addEventListener("input", ()=>{
-  if(phase!==0) return;
-  const has=$("wish").value.trim().length>0;
-  $("action-btn").disabled=!has;
-  if(has && !stamped){
-    stamped=true;
-    applyPaperStamp();
-    $("hint").textContent="Sealed & stamped — now crumple it!";
-    mascotSay("Sealed from "+originCity+"! Now crumple it into a ball 🗞️", "happy");
-  } else if(!has && stamped){
-    stamped=false;
-    $("paperStamp").classList.remove("show");
-    $("paperStamp").innerHTML="";
-    $("hint").textContent="Write your note to anyone, anywhere on Earth…";
+
+function verifyPuzzle() {
+  const userAns = parseInt($("puz-answer").value);
+  if(userAns === puzzleAnswer) {
+    $("puzzle-scrim").classList.remove("show");
+    showResultPopup(receiverData.c, "India", distKm(origin.lat, origin.lng, receiverData.la, receiverData.lo), receiverData.w, true);
+  } else {
+    puzzleChances--;
+    if(puzzleChances > 0) {
+      $("puz-chances").textContent = `Incorrect! Chances left: ${puzzleChances}`;
+      $("puz-answer").value = "";
+    } else {
+      $("puzzle-box").innerHTML = `<h2 style="color:red;">🔒 LOCKED FOREVER</h2><p>You failed the security check.</p>`;
+    }
   }
-});
+}
+
+/* --- SLINGSHOT MECHANICS --- */
+let phase = 0, windFactor = 350;
 
 $("action-btn").onclick=()=>{
-  if(busy||$("action-btn").disabled)return;
-  
-  // Crumple
-  phase=1;
+  if(!validateInputs()) return;
   $("sheet").classList.add("crumpled");
-  $("wish").style.opacity="0"; $("status-tag").style.opacity="0";
-  $("action-btn").innerHTML=`<svg viewBox="0 0 24 24"><path d="M12 22V12M8 4l4 8 4-8"/></svg> Load Slingshot`;
-  $("hint").textContent="Your wish is crumpled and ready.";
+  $("wish").style.opacity="0"; $("sheet-header").style.opacity="0";
   
-  // Transition to Sling Phase
   setTimeout(() => {
     phase=2;
     $("studio").classList.remove("active");
     $("studio").classList.add("hidden");
-
-    // Roll this round's "wind" — distance earned per unit of strength (200–500 km)
-    windFactor = 200 + Math.floor(Math.random()*301);
-    $("smWind").textContent = "×"+windFactor+" km";
-
-    // Bring back Globe and show Slingshot
     $("globe").classList.remove("hidden");
     $("slingshotView").classList.add("active");
-    $("slingHint").textContent = "Drag to aim • release in the green zone! (×"+windFactor+" km/power)";
     $("slingHint").classList.add("show");
-    mascotSay("Tailwind today is ×"+windFactor+" km! Drag to aim, then release in the green STRENGTH zone 💪", 6000);
+    mascotSay("Drag the pouch back, aim, and release in the green zone!");
   }, 1000);
 };
 
-/* ---------- Gamified Drag-to-Aim Mechanics ---------- */
-let isDragging = false;
-let startX, startY;
-const maxPullDist = 120; // max pixels you can pull back
-
-/* Strength challenge: a power bar bounces 0→100→0 while you pull.
-   Release timing = your strength. Land it in the green sweet zone for a bonus. */
+let isDragging = false, startX, startY;
 let strengthVal = 0, strengthDir = 1, strengthRAF = 0;
+
 function startStrengthMeter(){
-  strengthVal = 0; strengthDir = 1;
   $("strengthMeter").classList.add("active");
   const step = () => {
     strengthVal += strengthDir * 0.02;
@@ -921,355 +1183,191 @@ function startStrengthMeter(){
   };
   strengthRAF = requestAnimationFrame(step);
 }
-function stopStrengthMeter(){
-  cancelAnimationFrame(strengthRAF);
-  $("strengthMeter").classList.remove("active");
-}
 
-function updateAimHud(dx, dy) {
-  // Calculate power and angle based on drag delta
-  const dist = Math.min(Math.sqrt(dx*dx + dy*dy), maxPullDist);
-  const power = dist / maxPullDist; // 0 to 1
-  
-  // Angle for UI rotation
-  const angleRad = Math.atan2(dy, dx);
-  const angleDeg = angleRad * (180 / Math.PI);
-  
-  // Rotate the HUD container so the arrow points opposite of pull
-  // Base rotation: if pulled straight down (dy > 0), arrow points UP (0 deg)
-  const rotation = angleDeg + 90; 
-  $("aimHud").style.transform = `translateX(-50%) rotate(${rotation}deg)`;
-  
-  // Stretch the arrow based on power
-  const lineLength = 20 + (power * 100);
-  $("aimLine").setAttribute("d", `M150 150 L150 ${150 - lineLength}`);
-  $("aimHead").setAttribute("points", `150,${150 - lineLength - 10} 142,${150 - lineLength + 5} 158,${150 - lineLength + 5}`);
-  
-  return { power, angleRad };
-}
-
-function onDragStart(e) {
+$("pouchBall").addEventListener("mousedown", e => {
   if (phase !== 2) return;
-  isDragging = true;
-  let ev = e.touches ? e.touches[0] : e;
-  startX = ev.clientX; startY = ev.clientY;
-  
-  $("pouchBall").style.transition = "none";
+  isDragging = true; startX = e.clientX; startY = e.clientY;
   $("aimHud").classList.add("show");
-  $("slingHint").classList.remove("show");
-  startStretch();
   startStrengthMeter();
-}
-
-function onDragMove(e) {
+});
+document.addEventListener("mousemove", e => {
   if (!isDragging) return;
-  e.preventDefault(); // stop scrolling
-  let ev = e.touches ? e.touches[0] : e;
-  let dx = ev.clientX - startX;
-  let dy = ev.clientY - startY;
-  
-  // Limit the visual pull distance
+  let dx = e.clientX - startX, dy = e.clientY - startY;
   let dist = Math.sqrt(dx*dx + dy*dy);
-  if(dist > maxPullDist) { dx = (dx/dist)*maxPullDist; dy = (dy/dist)*maxPullDist; }
-  
+  if(dist > 120) { dx = (dx/dist)*120; dy = (dy/dist)*120; }
   $("pouchBall").style.transform = `translate(calc(-50% + ${dx}px), calc(-50% - 20px + ${dy}px))`;
-  
-  // Map to SVG coordinates for rubber bands
-  $("band-left").setAttribute("x2", 120 + dx);
-  $("band-left").setAttribute("y2", 90 + dy);
-  $("band-right").setAttribute("x2", 120 + dx);
-  $("band-right").setAttribute("y2", 90 + dy);
-  
-  updateAimHud(dx, dy);
-}
+  $("band-left").setAttribute("x2", 120 + dx); $("band-left").setAttribute("y2", 90 + dy);
+  $("band-right").setAttribute("x2", 120 + dx); $("band-right").setAttribute("y2", 90 + dy);
 
-function onDragEnd(e) {
+  // Rotate the aim arrow to point in the LAUNCH direction (opposite the pull).
+  const aimDeg = Math.atan2(-dx, dy) * 180 / Math.PI;
+  $("aimGroup").setAttribute("transform", `rotate(${aimDeg} 150 150)`);
+});
+document.addEventListener("mouseup", e => {
   if (!isDragging) return;
   isDragging = false;
-  
-  let ev = e.changedTouches ? e.changedTouches[0] : e;
-  let dx = ev.clientX - startX;
-  let dy = ev.clientY - startY;
-  let dist = Math.sqrt(dx*dx + dy*dy);
-  
-  // Lock in the strength at the moment of release, then stop the meter
-  const strength = strengthVal;
+  cancelAnimationFrame(strengthRAF);
+  $("strengthMeter").classList.remove("active");
   $("aimHud").classList.remove("show");
-  stopStretch();
-  stopStrengthMeter();
-
-  if(dist < 30) {
-    // Cancel shot if barely pulled
-    $("pouchBall").style.transition = "transform 0.3s ease-out";
+  
+  let dx = e.clientX - startX, dy = e.clientY - startY;
+  if(Math.sqrt(dx*dx + dy*dy) < 30) {
     $("pouchBall").style.transform = `translate(-50%, calc(-50% - 20px))`;
-    $("band-left").setAttribute("x2", 120); $("band-left").setAttribute("y2", 90);
-    $("band-right").setAttribute("x2", 120); $("band-right").setAttribute("y2", 90);
-    $("slingHint").classList.add("show");
     return;
   }
+  fireSling(strengthVal, Math.atan2(dy, dx));
+});
 
-  // Shoot! Aim (bearing) comes from the drag angle; STRENGTH comes from the meter.
-  let angleRad = Math.atan2(dy, dx);
-  firePaperSling(strength, angleRad);
-}
-
-$("pouchBall").addEventListener("mousedown", onDragStart);
-$("pouchBall").addEventListener("touchstart", onDragStart, {passive:false});
-document.addEventListener("mousemove", onDragMove);
-document.addEventListener("touchmove", onDragMove, {passive:false});
-document.addEventListener("mouseup", onDragEnd);
-document.addEventListener("touchend", onDragEnd);
-
-/* ---------- The Math: Calculating Destination ---------- */
-function getDestination(lat1, lon1, distanceKm, bearingDeg) {
-  const R = 6371; // Earth's radius
-  const d = distanceKm / R;
-  const brng = bearingDeg * Math.PI / 180;
-  const lat1Rad = lat1 * Math.PI / 180;
-  const lon1Rad = lon1 * Math.PI / 180;
-
-  const lat2Rad = Math.asin(Math.sin(lat1Rad)*Math.cos(d) + Math.cos(lat1Rad)*Math.sin(d)*Math.cos(brng));
-  const lon2Rad = lon1Rad + Math.atan2(Math.sin(brng)*Math.sin(d)*Math.cos(lat1Rad), Math.cos(d) - Math.sin(lat1Rad)*Math.sin(lat2Rad));
-
-  return { lat: lat2Rad * 180 / Math.PI, lng: lon2Rad * 180 / Math.PI };
-}
-
-function rollTier(dist, sweet){
-  let r = Math.random() + (sweet ? 0.18 : 0) + Math.min(dist/20000, 0.15);
-  if(r>1.02) return {name:"Mythic", mult:5};
-  if(r>0.9) return {name:"Legendary", mult:3};
-  if(r>0.68) return {name:"Rare", mult:2};
-  if(r>0.4) return {name:"Uncommon", mult:1.5};
-  return {name:"Common", mult:1};
-}
-
-/* ---------- The Launch Sequence ---------- */
-async function firePaperSling(strength, angleRad) {
-  busy = true; phase = 3;
-
-  // 1. Geography Math — distance = strength × this round's wind factor (200–500 km/power)
-  const maxWorldDist = 20037; // Max spherical distance on earth in km
-  const strengthUnits = strength * 40;            // strength (0–1) → up to 40 "power units"
-  const idealDist = clamp(Math.round(strengthUnits * windFactor), 200, maxWorldDist);
-
-  // Convert pull angle to map bearing (North = 0)
+/* --- FIRING SEQUENCE --- */
+function fireSling(strength, angleRad) {
+  phase = 3;
+  const idealDist = Math.max(500, Math.round((strength * 40) * windFactor));
   const bearing = (angleRad * 180 / Math.PI) - 90;
-  const ideal = getDestination(origin.lat, origin.lng, idealDist, bearing);
-
-  // Snap to the nearest real city so a wish NEVER lands in the ocean
-  const city = nearestCity(ideal.lat, ideal.lng);
-  const target = { lat: city.lat, lng: city.lng };
-  const destName = { city: city.city, country: city.country };
-  const distance = Math.max(200, Math.round(distKm(origin.lat, origin.lng, target.lat, target.lng)));
-
-  const sweet = strength >= 0.65 && strength <= 0.85;
-  const tier = rollTier(distance, sweet);
-  const wishText = $("wish").value.trim() || "A wish sent blindly to the winds";
-
-  // Mascot reacts to your throw
-  if(sweet){ mascotSay("PERFECT release! 🚀 A monster throw!", "wow", 3000); celebrate(); }
-  else if(strength < 0.3) mascotSay("Oof, a gentle toss 😅 a short hop…", "sad", 3000);
-  else mascotSay("Nice sling! Let's see where it lands… 🌬️", "happy", 3000);
   
-  // Snap the slingshot bands visually
-  playSnap();
+  const R = 6371; const d = idealDist / R; const brng = bearing * Math.PI / 180;
+  const lat1 = origin.lat * Math.PI / 180; const lon1 = origin.lng * Math.PI / 180;
+  const lat2 = Math.asin(Math.sin(lat1)*Math.cos(d) + Math.cos(lat1)*Math.sin(d)*Math.cos(brng));
+  const lon2 = lon1 + Math.atan2(Math.sin(brng)*Math.sin(d)*Math.cos(lat1), Math.cos(d) - Math.sin(lat1)*Math.sin(lat2));
+  
+  const city = nearestCity(lat2 * 180 / Math.PI, lon2 * 180 / Math.PI);
+  const distance = Math.round(distKm(origin.lat, origin.lng, city.lat, city.lng));
+
   $("pouchBall").style.opacity="0";
-  $("band-left").setAttribute("y2", 50); $("band-right").setAttribute("y2", 50);
-  setTimeout(()=>{ $("band-left").setAttribute("y2", 62); $("band-right").setAttribute("y2", 62); }, 110);
-  
-  // Hide UI
-  setTimeout(() => { $("slingshotView").classList.remove("active"); }, 300);
+  $("slingshotView").classList.remove("active");
 
-  // Animate projectile leaving screen
   const ball = document.createElement("div"); ball.className="flying-ball";
   ball.style.left="50%"; ball.style.bottom="120px"; document.body.appendChild(ball);
   ball.animate([
-    {transform:"translate(-50%, 0) scale(1) rotate(0deg)", opacity:1, offset:0},
-    {transform:`translate(-50%, -${innerHeight}px) scale(0.1) rotate(900deg)`, opacity:0, offset:1}
-  ], {duration:800, easing:"ease-in", fill:"forwards"}).onfinish = () => ball.remove();
+    {transform:"translate(-50%, 0) scale(1) rotate(0deg)", opacity:1},
+    {transform:`translate(-50%, -${innerHeight}px) scale(0.1) rotate(900deg)`, opacity:0}
+  ], {duration:800, fill:"forwards"}).onfinish = () => ball.remove();
 
-  chime(523,.5); if(sweet) chime(784,.5,"sine",.1);
-
-  // Globe animation to target location
-  arcs.push({startLat: origin.lat, startLng: origin.lng, endLat: target.lat, endLng: target.lng});
   world.controls().autoRotate = false;
-  
   setTimeout(() => {
-    world.arcsData([...arcs]);
-    world.pointOfView({lat: target.lat, lng: target.lng, altitude: 1.5}, 1200);
+    world.arcsData([{startLat: origin.lat, startLng: origin.lng, endLat: city.lat, endLng: city.lng}]);
+    world.pointOfView({lat: city.lat, lng: city.lng, altitude: 1.5}, 1200);
   }, 800);
 
-  // Zoom into Satellite Map
   setTimeout(() => {
-    world.pointOfView({lat: target.lat, lng: target.lng, altitude: 0.02}, 1600);
-  }, 2000);
-
-  // Switch to the (preloaded) Leaflet satellite view, fading it in over the globe
-  setTimeout(() => {
-    initLeaflet();
-    satMap.setView([target.lat, target.lng], 12);
+    satMap.setView([city.lat, city.lng], 12);
     $("satellite-map").classList.add("active");
-    satMap.invalidateSize(); // container was hidden until now
-  }, 3500);
+    satMap.invalidateSize();
+  }, 2500);
 
-  // Drop the Firey Meteor
-  setTimeout(() => {
-    dropMeteor(target, distance, tier, wishText, sweet, destName);
-  }, 4000);
+  setTimeout(() => dropMeteor(city, distance), 3000);
 }
 
-function dropMeteor(target, distance, tier, wishText, sweet, destName) {
-  const ball = document.createElement("div");
-  ball.className = "meteor-ball"; ball.style.top = "-150px";
-  document.body.appendChild(ball);
+function dropMeteor(city, distance) {
+  const ball = document.createElement("div"); ball.className = "meteor-ball"; 
+  ball.style.top = "-50px"; document.body.appendChild(ball);
 
-  const dy = (innerHeight / 2) + 150; 
   ball.animate([
     { transform: "translateX(-50%) translateY(0) scale(1.4)" },
-    { transform: `translateX(-50%) translateY(${dy}px) scale(0.6)` }
+    { transform: `translateX(-50%) translateY(${innerHeight/2 + 50}px) scale(0.6)` }
   ], { duration: 600, easing: "ease-in" }).onfinish = () => {
     ball.remove();
-    
-    // Impact!
-    chime(100, 0.9, "square", 0.4); 
     document.body.style.animation = "impactShake 0.4s ease-out";
     setTimeout(() => document.body.style.animation = "", 400);
 
-    const flash = document.createElement("div"); flash.className = "impact-flash";
-    document.body.appendChild(flash);
-    flash.animate([
-      { opacity: 1, transform: "scale(0.1)" },
-      { opacity: 0, transform: "scale(3)" }
-    ], { duration: 800, easing: "ease-out" }).onfinish = () => flash.remove();
+    // Paper ball lands and flattens with a satisfying squash.
+    const splat = document.createElement("div"); splat.className = "land-splat";
+    document.body.appendChild(splat);
+    requestAnimationFrame(() => splat.classList.add("flatten"));
+    setTimeout(() => splat.remove(), 760);
 
-    // Map Marker
-    if(satMarker) satMarker.removeFrom(satMap);
-    const iconHtml = `<div class="sheet crumpled" style="width:40px;height:40px;box-shadow:0 8px 16px rgba(0,0,0,0.8)!important;"></div>`;
-    satMarker = L.marker([target.lat, target.lng], {
-      icon: L.divIcon({ className: '', html: iconHtml, iconSize: [40, 40], iconAnchor: [20, 20] })
+    L.marker([city.lat, city.lng], {
+      icon: L.divIcon({
+        className: '',
+        html: `<div style="width:40px;height:40px;border-radius:40% 60% 50% 50%;background:radial-gradient(circle at 30% 30%, #fff, #d7c5a3);box-shadow:inset -3px -4px 8px rgba(90,60,20,0.3), 0 6px 12px rgba(0,0,0,0.8); display:flex;align-items:center;justify-content:center;font-size:18px;">💌</div>`,
+        iconSize: [40, 40]
+      })
     }).addTo(satMap);
-    
-    // Tally Results
-    setTimeout(() => {
-      streak = (performance.now()-lastThrow < 35000) ? streak+1 : 1;
-      lastThrow = performance.now();
-      const score = Math.round(distance * tier.mult * (1 + (streak-1)*0.25) * (sweet?1.3:1) / 10);
 
-      stampCount++; localStorage.setItem("ps_stamps", stampCount); $("s-stamps").textContent=fmt(stampCount);
+    saveSling({
+      senderName: $("senderName").value, receiverPhone: $("receiverPhone").value,
+      wish: $("wish").value, lat: city.lat, lng: city.lng, city: city.city,
+      distance: distance, stamp: stampIndex, originCity: originCity
+    }).then(refreshCount);
 
-      // Persist this wish + drop a pin on the globe
-      const rec = {
-        wish: wishText,
-        fromCity: originCity, fromCountry: originCountry, fromLat: origin.lat, fromLng: origin.lng,
-        toCity: destName.city, toCountry: destName.country,
-        lat: target.lat, lng: target.lng,
-        distance, tier: tier.name, score
-      };
-      saveSling(rec);                                   // → Firestore (if configured)
-      sendWishEmail(rec);                               // → EmailJS (optional, non-blocking)
-      // Show the new pin instantly (if subscribed, the snapshot will reconcile it).
-      messages.unshift({ ...rec, ts: Date.now() });
-      renderMarkers();
-
-      mascotSay("Touchdown in "+destName.city+"! 🌍 "+fmt(distance)+" km — amazing!", "happy", 5000);
-      showResult({ tier, distance, destName, wishText, score, streak });
-      busy = false;
-    }, 1500);
+    setTimeout(() => showResultPopup(city.city, "World", distance, $("wish").value, false, city.lat, city.lng), 1500);
   };
 }
 
-/* ---------- Result Card ---------- */
-function showResult({tier, distance, destName, wishText, score, streak}){
-  const col=tierColors[tier.name]||"var(--ink-stamp)";
-  const star=`<svg viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M12 2l2.9 6.3 6.9.7-5.2 4.6 1.5 6.8L12 17.8 5.9 20.4l1.5-6.8L2.2 9l6.9-.7z"/></svg>`;
-  $("r-tier").innerHTML=star+tier.name;$("r-tier").style.color=col;
-  $("r-dist").textContent=fmt(distance);
+/* --- RESULT POPUP & NEW BUTTONS --- */
+function showResultPopup(cityName, countryName, distance, noteText, isReceiverMode, lat, lng) {
+  $("r-dist").textContent = fmt(distance);
+  $("r-route").innerHTML = `<b>${originCity}</b> → <b>${cityName}</b>`;
+  $("r-wish").textContent = `"${noteText}"`;
+  $("pm-city").textContent = (originCity || "HERE").toUpperCase();
+  $("r-tier").textContent = isReceiverMode ? "✶ A SURPRISE FOR YOU ✶" : "✶ SURPRISE LANDED ✶";
+  $("r-quote").textContent = isReceiverMode
+    ? "Someone across the world is thinking of you tonight 🌍 and one day, they just might bring you to where this little plane landed. ✨"
+    : `Your paper plane travelled ${fmt(distance)} km to find them ✈️ some journeys are worth every single mile. 💛`;
   
-  const arrow=`<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="var(--ink-soft)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6"/></svg>`;
-  $("r-route").innerHTML=`<b>${originCity}</b>${arrow}<b>${destName.city}</b>`;
-  $("r-stamp").innerHTML=stampSVG(destName.city, destName.country, 96, col);
-  $("r-wish").textContent="“"+wishText+"”";
-  $("r-score").textContent=fmt(score);
-  $("r-streak").textContent="×"+streak;
-  $("r-stampn").textContent=fmt(stampCount);
-  $("r-note").innerHTML=`Someone who loves you sent this out into the world 💛<br>One day, they'll take you to <b>${destName.city}, ${destName.country}</b> — to unfold it together.`;
+  if(!isReceiverMode) {
+    const senderName = $("senderName").value.trim();
+    const phone = $("receiverPhone").value.trim();
+    
+    const payloadObj = { n: senderName, w: noteText, la: lat, lo: lo=lng, c: cityName };
+    const payload = btoa(encodeURIComponent(JSON.stringify(payloadObj)));
+    const siteUrl = window.location.origin + window.location.pathname + "?surprise=" + payload;
+    
+    const waMsg = `Hey! I just slung a secret paper plane across the world for you 💌\n\nClick the link to see where it landed, pass the security check, and open your surprise!\n\n${siteUrl}`;
+    const waLink = `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(waMsg)}`;
+    
+    $("ractions").innerHTML = `
+      <p style="text-align:center; font-size:12px; color:var(--ink-soft); margin:0 0 10px;">Your plane landed! Now send the link to them so they can unlock it.</p>
+      <a href="${waLink}" target="_blank" style="text-decoration: none;">
+        <button class="btn-whatsapp">
+          <svg viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.888-.788-1.487-1.761-1.66-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+          Send via WhatsApp
+        </button>
+      </a>
+      <div class="row">
+        <button onclick="closeResult()">Close Map</button>
+        <button style="background:linear-gradient(180deg,var(--halo),var(--ember-deep));color:#2a1606;border:none;" onclick="slingAnother()">Sling Another</button>
+      </div>
+    `;
+  } else {
+    $("ractions").innerHTML = `
+      <div class="row">
+        <button onclick="closeResult()">Close Map</button>
+        <button style="background:linear-gradient(180deg,var(--halo),var(--ember-deep));color:#2a1606;border:none;" onclick="location.search=''">Send Your Own</button>
+      </div>
+    `;
+  }
+
   $("scrim").classList.add("show");
+  setTimeout(playCelebrate, 250);
 }
 
-/* ---------- Paper view ⇄ Globe explore ---------- */
-function showWriteFab(s){ $("writeFab").classList.toggle("show", !!s); }
-
-// Close the paper card and just explore the spinning globe + wish pins
-function gotoGlobe(){
+/* --- RESET & NAVIGATION FUNCTIONS --- */
+function closeResult() {
   $("scrim").classList.remove("show");
   $("satellite-map").classList.remove("active");
-  $("mapBack").classList.remove("show");
-  $("studio").classList.remove("active");
-  $("studio").classList.add("hidden");
   $("globe").classList.remove("hidden");
   world.controls().autoRotate = true;
   world.pointOfView({lat: origin.lat, lng: origin.lng, altitude: 2.2}, 1200);
-  showWriteFab(true);
-  mascotSay("Spin the globe 🌍 tap any ✉️ pin to read a wish — or write your own!", "happy", 6000);
 }
 
-// Reopen the paper card. If a sling already happened, start a fresh note;
-// otherwise keep whatever was being written.
-function openStudio(){
-  if(phase!==0) resetPaper();
-  $("scrim").classList.remove("show");
-  $("satellite-map").classList.remove("active");
-  $("mapBack").classList.remove("show");
+function slingAnother() {
+  closeResult();
+  
+  $("senderName").value = ""; $("receiverPhone").value = ""; $("wish").value = "";
+  $("sheet").classList.remove("crumpled");
+  $("wish").style.opacity="1"; $("sheet-header").style.opacity="1";
+  $("stampSlot").classList.remove("show", "stamped");
+  $("stampSvg").innerHTML = ""; stampIndex = -1; stampHintShown = false;
+  phase = 0;
+  $("action-btn").disabled = true;
+  $("pouchBall").style.opacity = "1";
+  $("band-left").setAttribute("x2", 120); $("band-left").setAttribute("y2", 90);
+  $("band-right").setAttribute("x2", 120); $("band-right").setAttribute("y2", 90);
+  
   $("globe").classList.add("hidden");
   $("studio").classList.remove("hidden");
   $("studio").classList.add("active");
-  showWriteFab(false);
 }
-
-$("studioClose").onclick = gotoGlobe;
-$("writeFab").onclick = openStudio;
-$("r-explore").onclick = gotoGlobe;
-
-/* ---------- Reset App State ---------- */
-// Wipe the paper, slingshot, meter and buttons back to a fresh writable note.
-function resetPaper(){
-  phase = 0;
-  // Un-crumple paper
-  $("sheet").classList.remove("crumpled");
-  $("sheet").style.display="block"; $("sheet").style.opacity="1";
-  $("wish").style.opacity="1"; $("wish").value="";
-  $("status-tag").style.opacity="1";
-  stamped=false;
-  $("paperStamp").classList.remove("show");
-  $("paperStamp").innerHTML="";
-
-  // Reset Slingshot
-  $("slingshotView").classList.remove("active");
-  $("pouchBall").style.transition="none";
-  $("pouchBall").style.transform="translate(-50%, calc(-50% - 20px))";
-  $("pouchBall").style.opacity="1";
-  $("band-left").setAttribute("x2", 120); $("band-left").setAttribute("y2", 90);
-  $("band-right").setAttribute("x2", 120); $("band-right").setAttribute("y2", 90);
-
-  // Reset Action Button
-  $("action-btn").disabled=true;
-  $("action-btn").innerHTML=`<svg viewBox="0 0 24 24"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg> Crumple`;
-  $("hint").textContent="Write your note to anyone, anywhere on Earth…";
-
-  // Reset strength meter
-  $("slingHint").classList.remove("show");
-  $("strengthMeter").classList.remove("active");
-  $("smFill").style.height="0%";
-}
-
-$("r-again").onclick = () => {
-  resetPaper();
-  world.pointOfView({lat: origin.lat, lng: origin.lng, altitude: 2.2}, 1200);
-  world.controls().autoRotate = true;
-  openStudio();
-  mascotSay("Got another wish? Let's send it somewhere new! ✍️", "happy", 5000);
-};
-
 </script>
 </body>
 </html>
