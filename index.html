@@ -257,7 +257,8 @@
   .vbtn{ background:rgba(120,90,40,.14) !important; border:1px solid rgba(120,90,40,.45) !important; color:#3a2a16 !important; }
 
   /* --- GLOWING HEARTS ON THE GLOBE (globe.gl owns the outer transform) --- */
-  .globe-heart{ pointer-events:none; }
+  .globe-heart{ pointer-events:auto; cursor:pointer; padding:8px; }
+  .globe-heart:hover span{ transform:scale(1.5); }
   .globe-heart span{ display:block; font-size:18px; line-height:1; color:#ff4d6d;
     text-shadow:0 0 6px rgba(255,77,109,.95), 0 0 14px rgba(255,77,109,.8), 0 0 24px rgba(255,120,150,.6);
     animation:heartPulse 1.8s ease-in-out infinite; transform-origin:center; will-change:transform,opacity; }
@@ -1162,12 +1163,14 @@ world.pointOfView({lat: origin.lat, lng: origin.lng, altitude: OVERVIEW_ALT}, 0)
 // Glowing hearts pinned on the globe wherever a sling has landed (live from Firebase).
 world.htmlElementsData([])
   .htmlLat(d => d.lat).htmlLng(d => d.lng).htmlAltitude(0.01)
-  .htmlElement(() => {
+  .htmlElement((d) => {
     // globe.gl positions this element via its own transform, so the pulse
     // animation lives on an inner <span> to avoid overriding that transform.
     const el = document.createElement('div');
     el.className = 'globe-heart';
     el.innerHTML = '<span>❤</span>';
+    el.title = 'Open this note';
+    el.onclick = (ev) => { ev.stopPropagation(); viewSling(d); };
     return el;
   });
 
@@ -1577,6 +1580,46 @@ function closeResult() {
   $("globe").classList.remove("hidden");
   world.controls().autoRotate = true;
   world.pointOfView({lat: origin.lat, lng: origin.lng, altitude: OVERVIEW_ALT}, 1200);
+}
+
+/* --- TAP A HEART ON THE GLOBE → zoom in & read that note --- */
+function viewSling(d){
+  if(!d || typeof d.lat !== "number" || typeof d.lng !== "number") return;
+  SOUND.sfx.click();
+  $("scrim").classList.remove("show");
+  // Same cinematic: globe zoom-in → satellite map fade-in → Leaflet zoom-in → message.
+  try { world.controls().autoRotate = false; } catch(e){}
+  world.pointOfView({lat: d.lat, lng: d.lng, altitude: 1.2}, 1500);
+
+  setTimeout(() => {
+    $("satellite-map").classList.add("active");
+    satMap.invalidateSize();
+    satMap.setView([d.lat, d.lng], 4, { animate:false });
+    satMap.flyTo([d.lat, d.lng], 13, { duration: 2.4 });
+    L.marker([d.lat, d.lng], {
+      icon: L.divIcon({
+        className: '',
+        html: `<div style="width:40px;height:40px;border-radius:40% 60% 50% 50%;background:radial-gradient(circle at 30% 30%, #fff, #d7c5a3);box-shadow:inset -3px -4px 8px rgba(90,60,20,0.3), 0 6px 12px rgba(0,0,0,0.8); display:flex;align-items:center;justify-content:center;font-size:18px;">💌</div>`,
+        iconSize: [40, 40]
+      })
+    }).addTo(satMap);
+  }, 1600);
+
+  setTimeout(() => showCommunityMessage(d), 4200);
+}
+
+function showCommunityMessage(d){
+  const fromCity = d.originCity || "Somewhere";
+  const toCity = d.city || "Here";
+  $("r-dist").textContent = fmt(d.distance || 0);
+  $("r-route").innerHTML = `<b>${escapeHtml(fromCity)}</b> → <b>${escapeHtml(toCity)}</b>`;
+  $("r-wish").textContent = `"${d.wish || ''}"`;
+  $("pm-city").textContent = fromCity.toUpperCase();
+  $("r-tier").textContent = "✶ A NOTE FROM AFAR ✶";
+  $("r-quote").textContent = `Slung by ${escapeHtml(d.senderName || 'someone')} — one of thousands of little notes flying across the world. 💛`;
+  $("ractions").innerHTML = `<div class="row"><button onclick="closeResult()">Close Map</button></div>`;
+  $("scrim").classList.add("show");
+  SOUND.sfx.pop();
 }
 
 function slingAnother() {
